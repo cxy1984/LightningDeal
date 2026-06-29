@@ -25,6 +25,10 @@ import static com.lightningdeal.config.RabbitMQConfig.*;
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+    value = "spring.rabbitmq.listener.simple.auto-startup",
+    havingValue = "true", matchIfMissing = true
+)
 public class SeckillOrderConsumer {
 
     private static final String RESULT_PREFIX = "seckill:result:";

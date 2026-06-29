@@ -27,8 +27,9 @@ public class R<T> implements Serializable {
     @Schema(description = "数据")
     private T data;
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> ok() {
-        return ok(null);
+        return (R<T>) new R<>(200, "success", null);
     }
 
     public static <T> R<T> ok(T data) {
@@ -39,27 +40,33 @@ public class R<T> implements Serializable {
         return new R<>(200, msg, data);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> fail(int code, String msg) {
-        return new R<>(code, msg, null);
+        return (R<T>) new R<>(code, msg, null);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> fail(String msg) {
-        return new R<>(500, msg, null);
+        return (R<T>) new R<>(500, msg, null);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> fail() {
-        return new R<>(500, "Internal Server Error", null);
+        return (R<T>) new R<>(500, "Internal Server Error", null);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> badRequest(String msg) {
-        return new R<>(400, msg, null);
+        return (R<T>) new R<>(400, msg, null);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> unauthorized(String msg) {
-        return new R<>(401, msg, null);
+        return (R<T>) new R<>(401, msg, null);
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> R<T> forbidden(String msg) {
-        return new R<>(403, msg, null);
+        return (R<T>) new R<>(403, msg, null);
     }
 }

@@ -23,7 +23,7 @@ spring:
   redis:
     host: localhost
     port: 6379
-    database: 0
+    database: 1  # 0 上有其他数据，项目用 1 号库隔离
     timeout: 3000
     lettuce:
       pool:
@@ -92,6 +92,11 @@ minio:
   access-key: minioadmin
   secret-key: minioadmin
   bucket: lightning-deal
+
+# ===== 搜索功能开关 =====
+lightning-deal:
+  search:
+    enabled: true
 
 # ===== SpringDoc OpenAPI =====
 springdoc:

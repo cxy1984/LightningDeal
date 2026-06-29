@@ -27,6 +27,11 @@ import static org.elasticsearch.index.query.QueryBuilders.multiMatchQuery;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+    value = "lightning-deal.search.enabled",
+    havingValue = "true",
+    matchIfMissing = true
+)
 public class SearchServiceImpl implements SearchService {
 
     private final ActivitySearchRepository repository;

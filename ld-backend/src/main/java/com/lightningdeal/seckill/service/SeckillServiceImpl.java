@@ -7,18 +7,16 @@ import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.service.SeckillOrderService;
 import com.lightningdeal.seckill.model.SeckillRequest;
 import com.lightningdeal.seckill.model.SeckillResult;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static com.lightningdeal.config.RabbitMQConfig.SECKILL_EXCHANGE;
@@ -36,7 +34,6 @@ import static com.lightningdeal.config.RabbitMQConfig.SECKILL_ROUTING_KEY;
  */
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class SeckillServiceImpl implements SeckillService {
 
     private static final String STOCK_PREFIX = "seckill:stock:";
@@ -46,9 +43,23 @@ public class SeckillServiceImpl implements SeckillService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final RedissonClient redissonClient;
-    private final RabbitTemplate rabbitTemplate;
     private final SeckillActivityService activityService;
     private final SeckillOrderService orderService;
+    
+    /** RabbitMQ 可用时注入，不可用时为 null（走同步流程） */
+    private final ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider;
+
+    public SeckillServiceImpl(RedisTemplate<String, Object> redisTemplate,
+                              RedissonClient redissonClient,
+                              SeckillActivityService activityService,
+                              SeckillOrderService orderService,
+                              ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider) {
+        this.redisTemplate = redisTemplate;
+        this.redissonClient = redissonClient;
+        this.activityService = activityService;
+        this.orderService = orderService;
+        this.rabbitTemplateProvider = rabbitTemplateProvider;
+    }
 
     @Override
     public SeckillResult executeSeckill(Long userId, SeckillRequest request) {
@@ -99,20 +110,41 @@ public class SeckillServiceImpl implements SeckillService {
         // ===== 4. 标记用户已参与（熔断机制 - 先标记，失败则回滚） =====
         redisTemplate.opsForSet().add(userSetKey, userId.toString());
 
-        // ===== 5. 发送 MQ 消息异步下单 =====
-        try {
-            rabbitTemplate.convertAndSend(SECKILL_EXCHANGE, SECKILL_ROUTING_KEY,
-                    new SeckillMessage(userId, activityId, request.getQuantity()));
-            log.info("秒杀消息已发送 userId={}, activityId={}", userId, activityId);
-        } catch (Exception e) {
-            // MQ 发送失败，回滚 Redis 库存和用户标记
-            redisTemplate.opsForValue().increment(stockKey);
-            redisTemplate.opsForSet().remove(userSetKey, userId.toString());
-            log.error("MQ 发送失败，回滚库存 userId={}, activityId={}", userId, activityId, e);
-            return SeckillResult.fail("系统繁忙，请重试", activityId);
+        // ===== 5. 异步下单（MQ 可用走 MQ，不可用同步处理） =====
+        org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate = rabbitTemplateProvider.getIfAvailable();
+        if (rabbitTemplate != null) {
+            try {
+                rabbitTemplate.convertAndSend(SECKILL_EXCHANGE, SECKILL_ROUTING_KEY,
+                        new SeckillMessage(userId, activityId, request.getQuantity()));
+                log.info("MQ 消息已发送 userId={}, activityId={}", userId, activityId);
+                return SeckillResult.queuing(activityId);
+            } catch (Exception e) {
+                // MQ 发送失败，回滚 Redis 库存和用户标记
+                redisTemplate.opsForValue().increment(stockKey);
+                redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                log.error("MQ 发送失败，回滚库存 userId={}, activityId={}", userId, activityId, e);
+                return SeckillResult.fail("系统繁忙，请重试", activityId);
+            }
+        } else {
+            // MQ 不可用，同步处理（开发/演示模式）
+            log.info("MQ 不可用，走同步下单 userId={}, activityId={}", userId, activityId);
+            boolean dbSuccess = activityService.decrementDbStock(activityId);
+            if (!dbSuccess) {
+                activityService.incrRedisStock(activityId);
+                redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                return SeckillResult.fail("库存不足", activityId);
+            }
+            try {
+                SeckillOrder order = orderService.createOrder(userId, activityId, request.getQuantity());
+                log.info("同步下单成功 orderId={}", order.getId());
+            } catch (Exception e) {
+                activityService.incrRedisStock(activityId);
+                redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                return SeckillResult.fail("下单失败", activityId);
+            }
         }
 
-        // ===== 6. 返回排队中，结果通过 WebSocket 推送 =====
+        // ===== 6. 返回排队中（MQ 模式下 WebSocket 推结果） =====
         return SeckillResult.queuing(activityId);
     }
 

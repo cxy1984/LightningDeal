@@ -6,6 +6,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.rabbit.retry.RepublishMessageRecoverer;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,6 +15,8 @@ import org.springframework.context.annotation.Configuration;
  * RabbitMQ 配置
  */
 @Configuration
+@ConditionalOnClass(name = "org.springframework.amqp.rabbit.connection.ConnectionFactory")
+@ConditionalOnProperty(value = "spring.rabbitmq.listener.simple.auto-startup", havingValue = "true", matchIfMissing = true)
 public class RabbitMQConfig {
 
     // ===== 秒杀订单 - 交换机 & 队列 =====

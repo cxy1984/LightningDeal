@@ -6,7 +6,7 @@ services:
     image: mysql:5.7
     container_name: ld-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: 761761
       MYSQL_DATABASE: lightning_deal
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci

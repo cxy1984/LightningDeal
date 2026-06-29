@@ -1,0 +1,33 @@
+# ===== 精简开发配置（只需 MySQL + Redis） =====
+# 启动方式：./mvnw spring-boot:run -Dspring.profiles.active=lite
+# 只依赖 MySQL + Redis，无需 MQ / ES / MinIO
+
+spring:
+  # 关闭 RabbitMQ 自动配置，MQ 消费者不会启动
+  rabbitmq:
+    listener:
+      simple:
+        auto-startup: false
+
+  # 关闭 ES 自动配置
+  elasticsearch:
+    uris: http://localhost:9200
+
+# 关闭自动配置类
+spring.autoconfigure:
+  exclude:
+    - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+    - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+    - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+
+# 关闭搜索功能（ES 不可用时）
+lightning-deal:
+  search:
+    enabled: false
+
+# 日志只打印自己的代码
+logging:
+  level:
+    com.lightningdeal: debug
+    org.springframework.amqp: off
+    org.springframework.data.elasticsearch: off
