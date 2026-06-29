@@ -75,8 +75,8 @@ CREATE TABLE `seckill_order` (
 
 -- ===== 初始化测试数据 =====
 INSERT INTO `user` (`username`, `password`, `phone`, `nickname`) VALUES
-('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '13800138000', '管理员'),
-('testuser', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', '13900139000', '测试用户');
+('admin', '$2b$10$e4oU53QnwG/umBtAOBIMwObnJiqm8CKI/cKkY1nml3g8Zhe/GoJda', '13800138000', '管理员'),
+('testuser', '$2b$10$e4oU53QnwG/umBtAOBIMwObnJiqm8CKI/cKkY1nml3g8Zhe/GoJda', '13900139000', '测试用户');
 
 -- 密码都是 123456（BCrypt 加密）
 -- 秒杀活动测试数据（活动时间为当前时间到未来）
