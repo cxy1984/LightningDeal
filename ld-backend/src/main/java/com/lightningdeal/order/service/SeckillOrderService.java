@@ -1,0 +1,37 @@
+package com.lightningdeal.order.service;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.service.IService;
+import com.lightningdeal.order.entity.SeckillOrder;
+import com.lightningdeal.order.model.OrderVO;
+
+/**
+ * 订单服务
+ */
+public interface SeckillOrderService extends IService<SeckillOrder> {
+
+    /**
+     * 创建订单（MQ 消费者调用）
+     */
+    SeckillOrder createOrder(Long userId, Long activityId, Integer quantity);
+
+    /**
+     * 获取用户某个活动的订单
+     */
+    SeckillOrder getUserOrder(Long userId, Long activityId);
+
+    /**
+     * 分页查询用户订单
+     */
+    IPage<OrderVO> getUserOrders(Long userId, int page, int size, Integer status);
+
+    /**
+     * 支付订单
+     */
+    void payOrder(Long orderId);
+
+    /**
+     * 取消订单
+     */
+    void cancelOrder(Long orderId);
+}

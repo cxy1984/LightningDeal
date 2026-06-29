@@ -1,0 +1,83 @@
+package com.lightningdeal.user.service;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.lightningdeal.common.exception.BizException;
+import com.lightningdeal.config.JwtUtil;
+import com.lightningdeal.user.entity.User;
+import com.lightningdeal.user.mapper.UserMapper;
+import com.lightningdeal.user.model.LoginRequest;
+import com.lightningdeal.user.model.RegisterRequest;
+import com.lightningdeal.user.model.UserVO;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+/**
+ * 用户服务实现
+ */
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+
+    @Override
+    public UserVO register(RegisterRequest request) {
+        // 检查用户名是否已存在
+        if (lambdaQuery().eq(User::getUsername, request.getUsername()).count() > 0) {
+            throw new BizException(400, "用户名已存在");
+        }
+
+        // 检查手机号是否已存在
+        if (lambdaQuery().eq(User::getPhone, request.getPhone()).count() > 0) {
+            throw new BizException(400, "手机号已注册");
+        }
+
+        // 创建用户
+        User user = new User();
+        BeanUtils.copyProperties(request, user);
+        if (user.getNickname() == null) {
+            user.setNickname(request.getUsername());
+        }
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        save(user);
+
+        log.info("用户注册成功 userId={}, username={}", user.getId(), user.getUsername());
+        return toVO(user);
+    }
+
+    @Override
+    public String login(LoginRequest request) {
+        User user = lambdaQuery().eq(User::getUsername, request.getUsername()).one();
+        if (user == null) {
+            throw new BizException(401, "用户名或密码错误");
+        }
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new BizException(401, "用户名或密码错误");
+        }
+
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        log.info("用户登录成功 userId={}, username={}", user.getId(), user.getUsername());
+        return token;
+    }
+
+    @Override
+    public UserVO getUserInfo(Long userId) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new BizException(404, "用户不存在");
+        }
+        return toVO(user);
+    }
+
+    private UserVO toVO(User user) {
+        UserVO vo = new UserVO();
+        BeanUtils.copyProperties(user, vo);
+        return vo;
+    }
+}

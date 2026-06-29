@@ -1,0 +1,111 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: lightning-deal
+
+  # ===== MySQL =====
+  datasource:
+    url: jdbc:mysql://localhost:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: 761761
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      idle-timeout: 30000
+      connection-timeout: 10000
+
+  # ===== Redis =====
+  redis:
+    host: localhost
+    port: 6379
+    database: 0
+    timeout: 3000
+    lettuce:
+      pool:
+        max-active: 32
+        max-idle: 16
+        min-idle: 8
+        max-wait: -1ms
+
+  # ===== RabbitMQ =====
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    virtual-host: /
+    listener:
+      simple:
+        prefetch: 1
+        concurrency: 4
+        max-concurrency: 16
+        acknowledge-mode: manual
+      direct:
+        acknowledge-mode: manual
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+  # ===== Elasticsearch =====
+  elasticsearch:
+    uris: http://localhost:9200
+
+  # ===== Jackson =====
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+  # ===== File Upload =====
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+# ===== MyBatis-Plus =====
+mybatis-plus:
+  mapper-locations: classpath:mapper/**/*.xml
+  type-aliases-package: com.lightningdeal.**.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# ===== JWT =====
+jwt:
+  secret: LightningDealSecretKey2024!@#$%^&*()LightningDealSecretKey
+  expiration: 86400000  # 24h
+
+# ===== MinIO =====
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: lightning-deal
+
+# ===== SpringDoc OpenAPI =====
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  packages-to-scan: com.lightningdeal
+  show-actuator: false
+
+# ===== Logging =====
+logging:
+  level:
+    com.lightningdeal: debug
+    org.springframework.data.elasticsearch: warn

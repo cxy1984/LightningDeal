@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # ===== MySQL =====
+  mysql:
+    image: mysql:5.7
+    container_name: ld-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: lightning_deal
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ld-network
+
+  # ===== Redis =====
+  redis:
+    image: redis:7-alpine
+    container_name: ld-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ld-network
+
+  # ===== RabbitMQ =====
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: ld-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - ld-network
+
+  # ===== Elasticsearch =====
+  elasticsearch:
+    image: elasticsearch:7.17.22
+    container_name: ld-es
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - ld-network
+
+  # ===== Kibana (可选，用于 ES 可视化) =====
+  kibana:
+    image: kibana:7.17.22
+    container_name: ld-kibana
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - ld-network
+
+  # ===== MinIO =====
+  minio:
+    image: minio/minio:latest
+    container_name: ld-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - ld-network
+
+  # ===== LightningDeal Backend =====
+  backend:
+    build:
+      context: ./ld-backend
+      dockerfile: Dockerfile
+    container_name: ld-backend
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_REDIS_HOST: redis
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      MINIO_ENDPOINT: http://minio:9000
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+      - elasticsearch
+      - minio
+    networks:
+      - ld-network
+
+  # ===== LightningDeal Frontend =====
+  frontend:
+    build:
+      context: ./ld-frontend
+      dockerfile: Dockerfile
+    container_name: ld-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    networks:
+      - ld-network
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  es-data:
+  minio-data:
+
+networks:
+  ld-network:
+    driver: bridge
