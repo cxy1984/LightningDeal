@@ -11,6 +11,7 @@
           <el-menu-item index="/activity">🔥 秒杀活动</el-menu-item>
           <el-menu-item index="/dashboard">📊 实时大屏</el-menu-item>
           <el-menu-item v-if="userStore.token" index="/orders">📦 我的订单</el-menu-item>
+          <el-menu-item v-if="userStore.token" index="/admin/activity">⚙️ 活动管理</el-menu-item>
         </el-menu>
         <div class="user-info">
           <template v-if="userStore.token">

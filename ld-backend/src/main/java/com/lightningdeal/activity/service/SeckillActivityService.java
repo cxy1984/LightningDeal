@@ -31,6 +31,16 @@ public interface SeckillActivityService extends IService<SeckillActivity> {
     ActivityVO updateActivity(SeckillActivity activity);
 
     /**
+     * 删除活动（逻辑删除）
+     */
+    void deleteActivity(Long activityId);
+
+    /**
+     * 更新活动状态
+     */
+    ActivityVO updateStatus(Long activityId, Integer status);
+
+    /**
      * 预热活动库存到 Redis
      */
     void preheatStock(Long activityId);

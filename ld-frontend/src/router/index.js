@@ -35,6 +35,24 @@ const routes = [
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),
         meta: { title: '实时大屏' }
+      },
+      {
+        path: 'admin/activity',
+        name: 'ActivityManage',
+        component: () => import('@/views/admin/ActivityManage.vue'),
+        meta: { title: '活动管理', requireAuth: true }
+      },
+      {
+        path: 'admin/activity/create',
+        name: 'ActivityCreate',
+        component: () => import('@/views/admin/ActivityForm.vue'),
+        meta: { title: '创建活动', requireAuth: true }
+      },
+      {
+        path: 'admin/activity/edit/:id',
+        name: 'ActivityEdit',
+        component: () => import('@/views/admin/ActivityForm.vue'),
+        meta: { title: '编辑活动', requireAuth: true }
       }
     ]
   }

@@ -58,6 +58,9 @@ public class ActivityVO {
     @Schema(description = "状态: 0-草稿 1-上架 2-进行中 3-已结束")
     private Integer status;
 
+    @Schema(description = "数据库实际状态（管理后台用，不受时间计算影响）")
+    private Integer dbStatus;
+
     @Schema(description = "是否正在倒计时")
     private boolean countingDown;
 

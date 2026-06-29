@@ -51,6 +51,9 @@ export const api = {
   getActivityList: params => request.get('/activity/list', { params }),
   getActivityDetail: id => request.get(`/activity/detail/${id}`),
   createActivity: data => request.post('/activity/create', data),
+  updateActivity: data => request.put('/activity/update', data),
+  deleteActivity: id => request.delete(`/activity/${id}`),
+  updateActivityStatus: (id, status) => request.put(`/activity/status/${id}`, null, { params: { status } }),
   preheatStock: id => request.post(`/activity/preheat/${id}`),
 
   // 秒杀

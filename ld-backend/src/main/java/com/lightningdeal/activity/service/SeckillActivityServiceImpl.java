@@ -85,6 +85,42 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteActivity(Long activityId) {
+        SeckillActivity activity = getById(activityId);
+        if (activity == null) {
+            throw new BizException(404, "活动不存在");
+        }
+        // 逻辑删除
+        removeById(activityId);
+        log.info("删除活动 activityId={}, name={}", activityId, activity.getName());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public ActivityVO updateStatus(Long activityId, Integer status) {
+        SeckillActivity activity = getById(activityId);
+        if (activity == null) {
+            throw new BizException(404, "活动不存在");
+        }
+        if (status < 0 || status > 3) {
+            throw new BizException(400, "无效的状态值");
+        }
+        if (activity.getStatus() >= 2 && status < 2) {
+            throw new BizException(400, "活动已开始或结束，无法回退状态");
+        }
+        activity.setStatus(status);
+        updateById(activity);
+        log.info("更新活动状态 activityId={}, status={}", activityId, status);
+
+        // 上架时预热库存
+        if (status == 1) {
+            preheatStock(activityId);
+        }
+        return toVO(getById(activityId));
+    }
+
+    @Override
     public void preheatStock(Long activityId) {
         SeckillActivity activity = getById(activityId);
         if (activity == null) {
@@ -139,6 +175,9 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
     private ActivityVO toVO(SeckillActivity activity) {
         ActivityVO vo = new ActivityVO();
         BeanUtils.copyProperties(activity, vo);
+
+        // 保留数据库原始状态（管理后台用）
+        vo.setDbStatus(activity.getStatus());
 
         // 计算剩余库存（优先使用 Redis 中的实时库存）
         Integer redisStock = getRedisStock(activity.getId());

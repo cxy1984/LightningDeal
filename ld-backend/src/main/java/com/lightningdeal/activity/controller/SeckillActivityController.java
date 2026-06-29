@@ -56,4 +56,17 @@ public class SeckillActivityController {
         activityService.preheatStock(id);
         return R.ok("库存预热成功");
     }
+
+    @Operation(summary = "删除活动（逻辑删除）")
+    @DeleteMapping("/{id}")
+    public R<String> delete(@PathVariable Long id) {
+        activityService.deleteActivity(id);
+        return R.ok("删除成功");
+    }
+
+    @Operation(summary = "更新活动状态 0-草稿 1-上架 2-进行中 3-已结束")
+    @PutMapping("/status/{id}")
+    public R<ActivityVO> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
+        return R.ok(activityService.updateStatus(id, status));
+    }
 }
