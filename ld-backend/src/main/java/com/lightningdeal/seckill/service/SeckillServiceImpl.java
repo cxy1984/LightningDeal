@@ -80,7 +80,15 @@ public class SeckillServiceImpl implements SeckillService {
             throw new BizException(400, "活动已结束");
         }
 
-        // ===== 2. 校验是否已参与（Redis Set） =====
+        // ===== 2. 校验限购数量（数据库兜底） =====
+        long bought = orderService.countUserOrders(userId, activityId);
+        if (bought >= activity.getLimitPerUser()) {
+            log.warn("超过限购数量 userId={}, activityId={}, bought={}, limit={}",
+                    userId, activityId, bought, activity.getLimitPerUser());
+            return SeckillResult.fail("已达到限购数量，最多可买 " + activity.getLimitPerUser() + " 件", activityId);
+        }
+
+        // ===== 3. 校验是否已参与（Redis Set） =====
         String userSetKey = USER_SET_PREFIX + activityId;
         Boolean isMember = redisTemplate.opsForSet().isMember(userSetKey, userId.toString());
         if (Boolean.TRUE.equals(isMember)) {
@@ -107,10 +115,10 @@ public class SeckillServiceImpl implements SeckillService {
             return SeckillResult.fail("手慢啦，库存已被抢完", activityId);
         }
 
-        // ===== 4. 标记用户已参与（熔断机制 - 先标记，失败则回滚） =====
+        // ===== 5. 标记用户已参与（熔断机制 - 先标记，失败则回滚） =====
         redisTemplate.opsForSet().add(userSetKey, userId.toString());
 
-        // ===== 5. 异步下单（MQ 可用走 MQ，不可用同步处理） =====
+        // ===== 6. 异步下单（MQ 可用走 MQ，不可用同步处理） =====
         org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate = rabbitTemplateProvider.getIfAvailable();
         if (rabbitTemplate != null) {
             try {
@@ -144,7 +152,7 @@ public class SeckillServiceImpl implements SeckillService {
             }
         }
 
-        // ===== 6. 返回排队中（MQ 模式下 WebSocket 推结果） =====
+        // ===== 7. 返回排队中（MQ 模式下 WebSocket 推结果） =====
         return SeckillResult.queuing(activityId);
     }
 

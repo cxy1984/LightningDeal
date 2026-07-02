@@ -31,6 +31,12 @@ const routes = [
         meta: { title: '我的订单', requireAuth: true }
       },
       {
+        path: 'order/detail/:id',
+        name: 'OrderDetail',
+        component: () => import('@/views/OrderDetail.vue'),
+        meta: { title: '订单详情', requireAuth: true }
+      },
+      {
         path: 'dashboard',
         name: 'Dashboard',
         component: () => import('@/views/Dashboard.vue'),

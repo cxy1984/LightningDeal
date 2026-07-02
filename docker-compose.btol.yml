@@ -1,0 +1,147 @@
+# ============================================================
+# ⚡ LightningDeal —— 宝塔服务器安全部署版
+# ============================================================
+# 设计原则（朋友服务器上已有宝塔 MySQL/Nginx/PHP，绝不能冲突）：
+#   1. 中间件(MySQL/Redis/RabbitMQ/ES/MinIO) 端口一律【不映射到宿主机】
+#      只在内部网络 ld-network 通信，后端通过容器名访问。
+#      → 不论宝塔装没装 MySQL/Redis，都不冲突。
+#   2. 后端 8080 不对外，只经前端容器 Nginx 反代 /api、/ws 暴露。
+#   3. 前端只占宿主机一个空闲端口 8090（避开宝塔 Nginx 的 80/443）。
+#   4. 管理控制台(RabbitMQ/MinIO) 仅绑 127.0.0.1，需 SSH 隧道访问，不裸奔公网。
+#   5. 去掉 Kibana（可选，省 ~1.3GB 镜像 + 内存，磁盘紧张）。
+#   6. 修复原 compose 的 bug：build context 路径、SQL 挂载、后端 DB 密码。
+#
+# 用法（在项目根目录，已装好 Docker）：
+#   docker compose -f docker-compose.btol.yml up -d --build
+# ============================================================
+
+services:
+  # ===== MySQL 5.7 =====
+  mysql:
+    image: mysql:5.7
+    container_name: ld-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 761761
+      MYSQL_DATABASE: lightning_deal
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    # ⛔ 不映射 3306，避免与宝塔 MySQL 冲突；后端走 mysql:3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./ld-backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ld-network
+
+  # ===== Redis 7 =====
+  redis:
+    image: redis:7-alpine
+    container_name: ld-redis
+    restart: unless-stopped
+    # ⛔ 不映射 6379，避免与宝塔 Redis 冲突
+    volumes:
+      - redis-data:/data
+    networks:
+      - ld-network
+
+  # ===== RabbitMQ =====
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: ld-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    # 5672 不对外；管理台仅绑本机，用 SSH 隧道访问
+    ports:
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - ld-network
+
+  # ===== Elasticsearch 7.17 =====
+  # 需宿主机执行: sysctl -w vm.max_map_count=262144 (deploy-server.sh 会自动设)
+  elasticsearch:
+    image: elasticsearch:7.17.22
+    container_name: ld-es
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    # ⛔ 不对外暴露 9200/9300
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - ld-network
+
+  # ===== MinIO 对象存储 =====
+  minio:
+    image: minio/minio:latest
+    container_name: ld-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    # API 9000 不对外（仅内部）；控制台仅绑本机，用 SSH 隧道访问
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - ld-network
+
+  # ===== LightningDeal 后端 =====
+  backend:
+    build:
+      context: ./ld-backend
+      dockerfile: Dockerfile
+    container_name: ld-backend
+    restart: unless-stopped
+    environment:
+      # 走容器名访问中间件（同在 ld-network）
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 761761          # 修复原 compose 写成 root 的 bug
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      MINIO_ENDPOINT: http://minio:9000
+    # ⛔ 不映射 8080；通过前端容器 Nginx 反代 /api 访问
+    # restart=unless-stopped：中间件没就绪时后端会自动重启直到连上
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+      - elasticsearch
+      - minio
+    networks:
+      - ld-network
+
+  # ===== LightningDeal 前端（Nginx 静态托管 + 反代后端）=====
+  frontend:
+    build:
+      context: ./ld-frontend
+      dockerfile: Dockerfile
+    container_name: ld-frontend
+    restart: unless-stopped
+    ports:
+      - "8090:80"   # ✅ 唯一对外端口，避开宝塔 Nginx 的 80/443
+    depends_on:
+      - backend
+    networks:
+      - ld-network
+
+volumes:
+  mysql-data:
+  redis-data:
+  rabbitmq-data:
+  es-data:
+  minio-data:
+
+networks:
+  ld-network:
+    driver: bridge

@@ -8,8 +8,11 @@ import com.lightningdeal.activity.entity.SeckillActivity;
 import com.lightningdeal.activity.mapper.SeckillActivityMapper;
 import com.lightningdeal.activity.model.ActivityVO;
 import com.lightningdeal.common.exception.BizException;
+import com.lightningdeal.order.entity.SeckillOrder;
+import com.lightningdeal.order.service.SeckillOrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -34,6 +38,10 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final SeckillActivityMapper seckillActivityMapper;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private SeckillOrderService orderService;
 
     @Override
     public IPage<ActivityVO> listActivities(int page, int size, Integer status) {
@@ -91,9 +99,50 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
         if (activity == null) {
             throw new BizException(404, "活动不存在");
         }
-        // 逻辑删除
+        // 判断是否实际处于进行中或已结束（数据库 status>=2 或当前时间超过开始时间）
+        boolean isRunning = activity.getStatus() >= 2
+                || (activity.getStatus() >= 1 && LocalDateTime.now().isAfter(activity.getStartTime()));
+        if (isRunning) {
+            throw new BizException(400, "活动已开始或结束，无法删除");
+        }
+
+        // 1. 清理 Redis 库存和标记（先于事务执行，避免事务内 Redis 操作异常）
+        clearActivityRedisCache(activityId);
+
+        // 2. 作废该活动所有未支付的订单
+        List<SeckillOrder> pendingOrders = orderService.lambdaQuery()
+                .eq(SeckillOrder::getActivityId, activityId)
+                .eq(SeckillOrder::getStatus, 0)
+                .list();
+        for (SeckillOrder order : pendingOrders) {
+            order.setStatus(2); // 已取消
+            orderService.updateById(order);
+        }
+
+        // 3. 逻辑删除活动
         removeById(activityId);
-        log.info("删除活动 activityId={}, name={}", activityId, activity.getName());
+        log.info("删除活动 activityId={}, name={}, 取消订单数={}",
+                activityId, activity.getName(), pendingOrders.size());
+    }
+
+    /**
+     * 清理活动在 Redis 中的缓存
+     */
+    private void clearActivityRedisCache(Long activityId) {
+        String stockKey = STOCK_PREFIX + activityId;
+        String soldKey = SOLD_PREFIX + activityId;
+        String usersKey = "seckill:users:" + activityId;
+        String resultPattern = "seckill:result:" + activityId + ":*";
+
+        redisTemplate.delete(stockKey);
+        redisTemplate.delete(soldKey);
+        redisTemplate.delete(usersKey);
+        // 删除所有该活动的结果缓存
+        Set<String> resultKeys = redisTemplate.keys(resultPattern);
+        if (resultKeys != null && !resultKeys.isEmpty()) {
+            redisTemplate.delete(resultKeys);
+        }
+        log.debug("清除活动 Redis 缓存 activityId={}", activityId);
     }
 
     @Override

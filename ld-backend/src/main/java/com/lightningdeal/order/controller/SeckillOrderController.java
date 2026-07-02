@@ -33,6 +33,12 @@ public class SeckillOrderController {
         return R.ok(orderService.getUserOrders(userId, page, size, status));
     }
 
+    @Operation(summary = "订单详情")
+    @GetMapping("/detail/{orderId}")
+    public R<OrderVO> detail(@PathVariable Long orderId) {
+        return R.ok(orderService.getOrderDetail(orderId));
+    }
+
     @Operation(summary = "支付订单")
     @PostMapping("/pay/{orderId}")
     public R<String> pay(@PathVariable Long orderId) {

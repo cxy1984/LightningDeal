@@ -14,6 +14,8 @@ import javax.validation.ConstraintViolation;
 import javax.validation.ConstraintViolationException;
 import java.util.stream.Collectors;
 
+import static org.springframework.http.HttpStatus.TOO_MANY_REQUESTS;
+
 /**
  * 全局异常处理器
  */
@@ -52,6 +54,16 @@ public class GlobalExceptionHandler {
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(", "));
         return R.badRequest(msg);
+    }
+
+    /**
+     * 限流异常（429 Too Many Requests）
+     */
+    @ExceptionHandler(RateLimitException.class)
+    @ResponseStatus(TOO_MANY_REQUESTS)
+    public R<Void> handleRateLimit(RateLimitException e) {
+        log.warn("限流触发: {}", e.getMessage());
+        return R.fail(TOO_MANY_REQUESTS.value(), e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

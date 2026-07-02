@@ -1,19 +1,19 @@
 package com.lightningdeal.seckill.service;
 
 import com.lightningdeal.activity.service.SeckillActivityService;
-import com.lightningdeal.common.exception.BizException;
 import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.service.SeckillOrderService;
 import com.lightningdeal.seckill.model.SeckillResult;
 import com.lightningdeal.websocket.SeckillResultWebSocketHandler;
+import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static com.lightningdeal.config.RabbitMQConfig.*;
@@ -43,8 +43,7 @@ public class SeckillOrderConsumer {
      * 消费秒杀订单消息
      */
     @RabbitListener(queues = SECKILL_QUEUE)
-    @Transactional(rollbackFor = Exception.class)
-    public void handleSeckillOrder(SeckillMessage message) {
+    public void handleSeckillOrder(SeckillMessage message, Channel channel, @org.springframework.messaging.handler.annotation.Header(name = "amqp_deliveryTag") long deliveryTag) {
         Long userId = message.getUserId();
         Long activityId = message.getActivityId();
         Integer quantity = message.getQuantity();
@@ -59,6 +58,7 @@ public class SeckillOrderConsumer {
                 activityService.incrRedisStock(activityId);
                 SeckillResult result = SeckillResult.fail("库存不足", activityId);
                 notifyUser(userId, activityId, result);
+                ack(channel, deliveryTag);
                 return;
             }
 
@@ -76,12 +76,15 @@ public class SeckillOrderConsumer {
                         return msg;
                     });
 
+            ack(channel, deliveryTag);
+
         } catch (Exception e) {
             log.error("订单处理异常 userId={}, activityId={}", userId, activityId, e);
             // 回滚 Redis 库存
             activityService.incrRedisStock(activityId);
             SeckillResult result = SeckillResult.fail("系统繁忙", activityId);
             notifyUser(userId, activityId, result);
+            nack(channel, deliveryTag);
         }
     }
 
@@ -89,29 +92,60 @@ public class SeckillOrderConsumer {
      * 消费死信队列（重试耗尽的消息）
      */
     @RabbitListener(queues = DEAD_QUEUE)
-    public void handleDeadLetter(SeckillMessage message) {
+    public void handleDeadLetter(SeckillMessage message, Channel channel, @org.springframework.messaging.handler.annotation.Header(name = "amqp_deliveryTag") long deliveryTag) {
         log.error("死信消息，人工处理 userId={}, activityId={}", message.getUserId(), message.getActivityId());
-        // 回滚 Redis 库存
-        activityService.incrRedisStock(message.getActivityId());
-        SeckillResult result = SeckillResult.fail("超时未处理", message.getActivityId());
-        notifyUser(message.getUserId(), message.getActivityId(), result);
+        try {
+            // 回滚 Redis 库存
+            activityService.incrRedisStock(message.getActivityId());
+            SeckillResult result = SeckillResult.fail("超时未处理", message.getActivityId());
+            notifyUser(message.getUserId(), message.getActivityId(), result);
+        } finally {
+            ack(channel, deliveryTag);
+        }
     }
 
     /**
      * 消费延迟消息，超时取消订单
      */
     @RabbitListener(queues = DELAY_QUEUE)
-    @Transactional(rollbackFor = Exception.class)
-    public void handleOrderTimeout(Long orderId) {
+    public void handleOrderTimeout(Long orderId, Channel channel, @org.springframework.messaging.handler.annotation.Header(name = "amqp_deliveryTag") long deliveryTag) {
         log.info("订单超时取消 orderId={}", orderId);
-        SeckillOrder order = orderService.getById(orderId);
-        if (order != null && order.getStatus() == 0) { // 未支付
-            orderService.cancelOrder(orderId);
-            activityService.incrRedisStock(order.getActivityId());
-            // 移除用户标记，允许重新抢购
-            redisTemplate.opsForSet().remove("seckill:users:" + order.getActivityId(), order.getUserId().toString());
-            SeckillResult result = SeckillResult.fail("订单超时已取消", order.getActivityId());
-            notifyUser(order.getUserId(), order.getActivityId(), result);
+        try {
+            SeckillOrder order = orderService.getById(orderId);
+            if (order != null && order.getStatus() == 0) { // 未支付
+                orderService.cancelOrder(orderId);
+                activityService.incrRedisStock(order.getActivityId());
+                // 移除用户标记，允许重新抢购
+                redisTemplate.opsForSet().remove("seckill:users:" + order.getActivityId(), order.getUserId().toString());
+                SeckillResult result = SeckillResult.fail("订单超时已取消", order.getActivityId());
+                notifyUser(order.getUserId(), order.getActivityId(), result);
+            }
+            ack(channel, deliveryTag);
+        } catch (Exception e) {
+            log.error("订单超时处理异常 orderId={}", orderId, e);
+            nack(channel, deliveryTag);
+        }
+    }
+
+    /**
+     * 手动确认消息
+     */
+    private void ack(Channel channel, long deliveryTag) {
+        try {
+            channel.basicAck(deliveryTag, false);
+        } catch (IOException e) {
+            log.error("消息确认失败 deliveryTag={}", deliveryTag, e);
+        }
+    }
+
+    /**
+     * 手动拒绝消息（发送到死信队列）
+     */
+    private void nack(Channel channel, long deliveryTag) {
+        try {
+            channel.basicNack(deliveryTag, false, false);
+        } catch (IOException e) {
+            log.error("消息拒绝失败 deliveryTag={}", deliveryTag, e);
         }
     }
 

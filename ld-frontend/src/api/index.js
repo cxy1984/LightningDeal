@@ -62,6 +62,7 @@ export const api = {
 
   // 订单
   getOrders: params => request.get('/order/list', { params }),
+  getOrderDetail: orderId => request.get(`/order/detail/${orderId}`),
   payOrder: orderId => request.post(`/order/pay/${orderId}`),
   cancelOrder: orderId => request.post(`/order/cancel/${orderId}`),
 

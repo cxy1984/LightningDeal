@@ -76,6 +76,15 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
     }
 
     @Override
+    public OrderVO getOrderDetail(Long orderId) {
+        SeckillOrder order = getById(orderId);
+        if (order == null) {
+            throw new BizException(404, "订单不存在");
+        }
+        return toVO(order);
+    }
+
+    @Override
     @Transactional(rollbackFor = Exception.class)
     public void payOrder(Long orderId) {
         SeckillOrder order = getById(orderId);
@@ -112,6 +121,15 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
             default: vo.setStatusText("未知");
         }
         return vo;
+    }
+
+    @Override
+    public long countUserOrders(Long userId, Long activityId) {
+        return lambdaQuery()
+                .eq(SeckillOrder::getUserId, userId)
+                .eq(SeckillOrder::getActivityId, activityId)
+                .ne(SeckillOrder::getStatus, 2) // 排除已取消
+                .count();
     }
 
     private String generateOrderNo() {

@@ -34,4 +34,14 @@ public interface SeckillOrderService extends IService<SeckillOrder> {
      * 取消订单
      */
     void cancelOrder(Long orderId);
+
+    /**
+     * 获取订单详情
+     */
+    OrderVO getOrderDetail(Long orderId);
+
+    /**
+     * 统计用户某个活动已购买数量（排除已取消）
+     */
+    long countUserOrders(Long userId, Long activityId);
 }

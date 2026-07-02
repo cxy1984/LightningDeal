@@ -24,11 +24,11 @@
         </template>
       </el-table-column>
       <el-table-column label="创建时间" prop="createTime" width="180" />
-      <el-table-column label="操作" width="200" align="center">
+      <el-table-column label="操作" width="280" align="center">
         <template #default="{ row }">
+          <el-button type="primary" size="small" @click="$router.push('/order/detail/' + row.id)">详情</el-button>
           <el-button v-if="row.status === 0" type="success" size="small" @click="handlePay(row.id)">支付</el-button>
           <el-button v-if="row.status === 0" type="info" size="small" @click="handleCancel(row.id)">取消</el-button>
-          <span v-else>-</span>
         </template>
       </el-table-column>
     </el-table>

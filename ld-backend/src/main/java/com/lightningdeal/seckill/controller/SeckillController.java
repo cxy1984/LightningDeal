@@ -1,5 +1,6 @@
 package com.lightningdeal.seckill.controller;
 
+import com.lightningdeal.common.annotation.RateLimit;
 import com.lightningdeal.common.response.R;
 import com.lightningdeal.seckill.model.SeckillRequest;
 import com.lightningdeal.seckill.model.SeckillResult;
@@ -25,6 +26,12 @@ public class SeckillController {
 
     @Operation(summary = "执行秒杀")
     @PostMapping("/execute")
+    @RateLimit(
+            qps = 5,
+            capacity = 10,
+            key = "'seckill:' + #request.activityId + ':' + #authentication.principal",
+            message = "秒杀太火爆啦，请稍后再试"
+    )
     public R<SeckillResult> execute(@Valid @RequestBody SeckillRequest request,
                                     Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();

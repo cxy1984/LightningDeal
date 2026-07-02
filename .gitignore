@@ -27,3 +27,13 @@ logs/
 # Env
 .env
 *.local
+
+# Python
+.venv/
+*LightningDeal.venv/
+__pycache__/
+*.pyc
+
+# Docker deploy
+!ld-backend/Dockerfile
+!ld-frontend/Dockerfile

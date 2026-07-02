@@ -11,6 +11,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * RabbitMQ 配置
  */
@@ -87,13 +90,14 @@ public class RabbitMQConfig {
 
     /**
      * 延迟交换机（使用 RabbitMQ 插件 rabbitmq_delayed_message_exchange）
+     * <p>
+     * 必须在 RabbitMQ 中启用插件：rabbitmq-plugins enable rabbitmq_delayed_message_exchange
      */
     @Bean
     public CustomExchange delayExchange() {
-        return ExchangeBuilder.directExchange(DELAY_EXCHANGE)
-                .durable(true)
-                .delayed()
-                .build();
+        Map<String, Object> args = new HashMap<>();
+        args.put("x-delayed-type", "direct");
+        return new CustomExchange(DELAY_EXCHANGE, "x-delayed-message", true, false, args);
     }
 
     /**
