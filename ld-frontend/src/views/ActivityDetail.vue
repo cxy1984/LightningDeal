@@ -63,19 +63,22 @@
             <el-button @click="$router.push('/activity')" size="large">返回列表</el-button>
           </div>
 
-          <!-- 结果弹窗 -->
-          <el-dialog v-model="resultVisible" title="抢购结果" width="360px" :close-on-click-modal="false">
-            <div class="result-content">
-              <div :class="['result-icon', seckillResult?.success ? 'success' : 'fail']">
-                {{ seckillResult?.success ? '🎉' : '😢' }}
-              </div>
-              <p class="result-msg">{{ seckillResult?.message }}</p>
-              <p v-if="seckillResult?.status === 1" class="result-hint">正在排队处理，请稍候...</p>
+          <!-- 秒杀结果展示（内嵌） -->
+          <div v-if="myResult" class="my-result-card" :class="'result-' + myResult.status">
+            <div class="result-icon">{{ resultIcon }}</div>
+            <div class="result-body">
+              <p class="result-title">{{ myResult.message }}</p>
+              <p class="result-sub" v-if="myResult.status === 1">正在处理，请稍候...</p>
             </div>
-            <template #footer>
-              <el-button @click="resultVisible = false" type="primary">知道了</el-button>
-            </template>
-          </el-dialog>
+            <div class="result-actions">
+              <el-button v-if="myResult.status === 2 && myResult.orderId" type="primary" size="small" @click="goToOrder">
+                查看订单
+              </el-button>
+              <el-button v-if="myResult.status === 5" type="danger" size="small" @click="retrySeckill" :disabled="seckillDisabled || seckilling">
+                再试一次
+              </el-button>
+            </div>
+          </div>
         </div>
       </el-col>
     </el-row>
@@ -115,10 +118,19 @@ const wsStore = useWebSocketStore()
 
 const activity = ref(null)
 const seckilling = ref(false)
-const resultVisible = ref(false)
-const seckillResult = ref(null)
 const flashStream = ref([])
+const myResult = ref(null)
+
+// 秒杀结果状态
+const RESULT_QUEUING = 1
+const RESULT_SUCCESS = 2
+const RESULT_FAIL = 3
+const RESULT_REPEAT = 4
+const RESULT_LIMITED = 5
+
 let countdownTimer = null
+let pollingTimer = null
+let unsubscribeWs = null
 
 const discountText = computed(() => {
   if (!activity.value) return ''
@@ -152,16 +164,29 @@ const seckillBtnText = computed(() => {
   return '暂无活动'
 })
 
+const resultIcon = computed(() => {
+  const icons = { 1: '⏳', 2: '🎉', 3: '😢', 4: 'ℹ️', 5: '😤' }
+  return icons[myResult.value?.status] || ''
+})
+
 const countdownDisplay = ref('')
 
 onMounted(async () => {
   await fetchDetail()
   startCountdown()
-  connectWebSocket()
+  setupWebSocket()
+  // 恢复上次未完成的秒杀结果查询
+  const pendingAid = activity.value?.id
+  if (pendingAid && localStorage.getItem(`seckill_pending_${pendingAid}`)) {
+    startPolling(pendingAid)
+  }
 })
 
 onUnmounted(() => {
   clearInterval(countdownTimer)
+  clearTimeout(pollingTimer)
+  if (unsubscribeWs) unsubscribeWs()
+  localStorage.removeItem('seckill_pending_' + activity.value?.id)
 })
 
 async function fetchDetail() {
@@ -186,33 +211,58 @@ function startCountdown() {
   }, 1000)
 }
 
-function connectWebSocket() {
-  if (userStore.token) {
-    wsStore.connectSeckill(userStore.user?.id)
-    // 监听秒杀结果
-    const unwatch = wsStore.$subscribe((mutation, state) => {
-      if (state.lastMessage) {
-        handleResult(state.lastMessage)
-        state.lastMessage = null
+function setupWebSocket() {
+  if (userStore.token && userStore.user?.id) {
+    wsStore.connectSeckill(userStore.user.id)
+    unsubscribeWs = wsStore.onSeckillResult((result) => {
+      if (result.activityId === activity.value?.id) {
+        handleResult(result)
       }
     })
-    onUnmounted(unwatch)
   }
 }
 
 function handleResult(result) {
-  if (result.activityId === activity.value?.id) {
-    seckillResult.value = result
-    resultVisible.value = true
-    seckilling.value = false
-    // 更新成交记录
-    flashStream.value.unshift({
-      username: result.success ? '我' : '我',
-      success: result.success,
-      timestamp: Date.now()
-    })
-    if (flashStream.value.length > 50) flashStream.value.length = 50
+  // 后端状态 → 前端状态
+  // 1=排队中, 2=成功, 3=失败, 4=重复参与
+  const statusMap = { 1: RESULT_QUEUING, 2: RESULT_SUCCESS, 3: RESULT_FAIL, 4: RESULT_REPEAT }
+  myResult.value = {
+    status: statusMap[result.status] || RESULT_FAIL,
+    message: result.message,
+    orderId: result.orderId || null
   }
+
+  // 更新成交记录
+  flashStream.value.unshift({
+    username: '我',
+    success: result.success,
+    timestamp: Date.now()
+  })
+  if (flashStream.value.length > 50) flashStream.value.length = 50
+
+  // 清理轮询
+  localStorage.removeItem(`seckill_pending_${activity.value?.id}`)
+  clearTimeout(pollingTimer)
+  seckilling.value = false
+}
+
+function startPolling(activityId) {
+  const poll = () => {
+    pollingTimer = setTimeout(async () => {
+      try {
+        const res = await api.getSeckillResult(activityId)
+        const result = res.data
+        if (result.status === 1) {
+          startPolling(activityId)
+        } else {
+          handleResult(result)
+        }
+      } catch (e) {
+        startPolling(activityId)
+      }
+    }, 2000)
+  }
+  poll()
 }
 
 async function handleSeckill() {
@@ -225,13 +275,32 @@ async function handleSeckill() {
     const res = await api.executeSeckill({ activityId: activity.value.id, quantity: 1 })
     const result = res.data
     if (result.status === 1) {
-      // 排队中，等待 WebSocket 推送
-      ElMessage.info('正在排队处理，请稍候...')
+      // 排队中
+      myResult.value = { status: RESULT_QUEUING, message: '正在排队处理，请稍候...', orderId: null }
+      localStorage.setItem(`seckill_pending_${activity.value.id}`, '1')
+      // 5 秒后轮询兜底
+      setTimeout(() => {
+        if (seckilling.value) startPolling(activity.value.id)
+      }, 5000)
     } else {
       handleResult(result)
     }
   } catch (e) {
+    // 限流或其他异常（RateLimitAspect 返回 429）
+    const msg = e?.message || '系统繁忙'
+    myResult.value = { status: RESULT_LIMITED, message: msg, orderId: null }
     seckilling.value = false
+  }
+}
+
+function retrySeckill() {
+  myResult.value = null
+  handleSeckill()
+}
+
+function goToOrder() {
+  if (myResult.value?.orderId) {
+    router.push(`/order/detail/${myResult.value.orderId}`)
   }
 }
 
@@ -270,10 +339,28 @@ function formatTime(ts) {
 .countdown-timer { font-size: 36px; font-weight: bold; color: #e74c3c; letter-spacing: 4px; }
 .action-section { display: flex; gap: 16px; }
 .seckill-btn { flex: 1; font-size: 18px; height: 56px; }
-.result-content { text-align: center; padding: 20px; }
-.result-icon { font-size: 64px; margin-bottom: 16px; }
-.result-msg { font-size: 18px; font-weight: bold; }
-.result-hint { font-size: 14px; color: #999; margin-top: 8px; }
+
+/* 内嵌结果卡片 */
+.my-result-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid;
+}
+.result-icon { font-size: 36px; flex-shrink: 0; }
+.result-body { flex: 1; min-width: 0; }
+.result-title { margin: 0; font-weight: bold; font-size: 16px; }
+.result-sub { margin: 4px 0 0; font-size: 13px; color: #666; }
+.result-actions { flex-shrink: 0; }
+.result-1 { background: #fff3cd; border-color: #ffc107; }
+.result-2 { background: #d4edda; border-color: #28a745; }
+.result-3 { background: #f8d7da; border-color: #dc3545; }
+.result-4 { background: #d1ecf1; border-color: #17a2b8; }
+.result-5 { background: #f8d7da; border-color: #e74c3c; }
+
 .flash-stream { margin-top: 32px; }
 .stream-container { max-height: 300px; overflow-y: auto; }
 .stream-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }

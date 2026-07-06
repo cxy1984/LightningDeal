@@ -4,7 +4,22 @@ import { ref } from 'vue'
 export const useWebSocketStore = defineStore('websocket', () => {
   const seckillWs = ref(null)
   const dashboardWs = ref(null)
-  const lastMessage = ref(null)
+
+  // 秒杀结果回调列表
+  const seckillCallbacks = []
+
+  /**
+   * 注册秒杀结果回调
+   * @param {Function} callback - 接收 (result) => void
+   * @returns {Function} 取消注册的函数
+   */
+  function onSeckillResult(callback) {
+    seckillCallbacks.push(callback)
+    return () => {
+      const idx = seckillCallbacks.indexOf(callback)
+      if (idx !== -1) seckillCallbacks.splice(idx, 1)
+    }
+  }
 
   function connectSeckill(userId) {
     if (seckillWs.value) return
@@ -13,19 +28,32 @@ export const useWebSocketStore = defineStore('websocket', () => {
     seckillWs.value = new WebSocket(wsUrl)
 
     seckillWs.value.onmessage = (event) => {
-      lastMessage.value = JSON.parse(event.data)
+      try {
+        const result = JSON.parse(event.data)
+        // 通知所有注册的回调
+        seckillCallbacks.forEach(cb => cb(result))
+      } catch (e) {
+        // ignore parse error
+      }
     }
 
     seckillWs.value.onclose = () => {
       seckillWs.value = null
     }
 
+    seckillWs.value.onerror = () => {
+      seckillWs.value = null
+    }
+
     // 心跳
-    setInterval(() => {
+    const heartbeat = setInterval(() => {
       if (seckillWs.value?.readyState === WebSocket.OPEN) {
         seckillWs.value.send('ping')
       }
     }, 30000)
+
+    // 页面关闭时清理心跳
+    window.addEventListener('beforeunload', () => clearInterval(heartbeat), { once: true })
   }
 
   function connectDashboard(onMessage) {
@@ -35,10 +63,18 @@ export const useWebSocketStore = defineStore('websocket', () => {
     dashboardWs.value = new WebSocket(wsUrl)
 
     dashboardWs.value.onmessage = (event) => {
-      onMessage?.(JSON.parse(event.data))
+      try {
+        onMessage?.(JSON.parse(event.data))
+      } catch (e) {
+        // ignore
+      }
     }
 
     dashboardWs.value.onclose = () => {
+      dashboardWs.value = null
+    }
+
+    dashboardWs.value.onerror = () => {
       dashboardWs.value = null
     }
   }
@@ -48,7 +84,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
     dashboardWs.value?.close()
     seckillWs.value = null
     dashboardWs.value = null
+    seckillCallbacks.length = 0
   }
 
-  return { seckillWs, dashboardWs, lastMessage, connectSeckill, connectDashboard, disconnectAll }
+  return { seckillWs, dashboardWs, onSeckillResult, connectSeckill, connectDashboard, disconnectAll }
 })
