@@ -14,13 +14,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
-        changeOrigin: true,
-        rewrite: path => path.replace(/^\/api/, '/api')
-      },
-      '/ws': {
-        target: 'ws://localhost:8080',
-        ws: true
+        changeOrigin: true
       }
+      // 删掉 /ws 代理：开发环境前端直连后端 ws://localhost:8080，避免 Vite ws 代理 ECONNRESET 报错
     }
   }
 })

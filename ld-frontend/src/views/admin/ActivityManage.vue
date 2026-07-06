@@ -23,7 +23,7 @@
       </el-table-column>
       <el-table-column label="状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="statusType(row.dbStatus)">{{ statusText(row.dbStatus) }}</el-tag>
+          <el-tag :type="statusType(row.status)">{{ statusText(row.status) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="开始时间" prop="startTime" width="170" />
@@ -33,33 +33,34 @@
           <el-button type="primary" size="small" @click="$router.push(`/admin/activity/edit/${row.id}`)">
             编辑
           </el-button>
-          <el-button
-            v-if="row.dbStatus === 0"
-            type="success"
-            size="small"
-            :loading="statusLoading === row.id"
-            @click="handleStatus(row.id, 1)"
-          >
-            上架
-          </el-button>
-          <el-button
-            v-if="row.dbStatus === 1"
-            type="warning"
-            size="small"
-            :loading="statusLoading === row.id"
-            @click="handleStatus(row.id, 0)"
-          >
-            下架
-          </el-button>
-          <el-button
-            v-if="row.dbStatus < 2"
-            type="danger"
-            size="small"
-            :loading="deleteLoading === row.id"
-            @click="handleDelete(row)"
-          >
-            删除
-          </el-button>
+          <template v-if="row.status < 2">
+            <el-button
+              v-if="row.dbStatus === 0"
+              type="success"
+              size="small"
+              :loading="statusLoading === row.id"
+              @click="handleStatus(row.id, 1)"
+            >
+              上架
+            </el-button>
+            <el-button
+              v-if="row.dbStatus === 1"
+              type="warning"
+              size="small"
+              :loading="statusLoading === row.id"
+              @click="handleStatus(row.id, 0)"
+            >
+              下架
+            </el-button>
+            <el-button
+              type="danger"
+              size="small"
+              :loading="deleteLoading === row.id"
+              @click="handleDelete(row)"
+            >
+              删除
+            </el-button>
+          </template>
           <span v-else style="color:#999;font-size:12px">-</span>
         </template>
       </el-table-column>

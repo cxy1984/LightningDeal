@@ -213,7 +213,13 @@ function startCountdown() {
 
 function setupWebSocket() {
   if (userStore.token && userStore.user?.id) {
-    wsStore.connectSeckill(userStore.user.id)
+    // 连接 WebSocket，重连成功后自动拉取遗漏的秒杀结果
+    wsStore.connectSeckill(userStore.user.id, () => {
+      const pendingAid = localStorage.getItem('seckill_pending_')
+      if (activity.value?.id && localStorage.getItem('seckill_pending_' + activity.value.id)) {
+        startPolling(activity.value.id)
+      }
+    })
     unsubscribeWs = wsStore.onSeckillResult((result) => {
       if (result.activityId === activity.value?.id) {
         handleResult(result)

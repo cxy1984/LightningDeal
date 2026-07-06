@@ -65,6 +65,7 @@ export const api = {
   getOrderDetail: orderId => request.get(`/order/detail/${orderId}`),
   payOrder: orderId => request.post(`/order/pay/${orderId}`),
   cancelOrder: orderId => request.post(`/order/cancel/${orderId}`),
+  refundOrder: orderId => request.post(`/order/refund/${orderId}`),
 
   // 搜索
   searchActivity: params => request.get('/search/activity', { params }),

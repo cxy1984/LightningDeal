@@ -52,4 +52,11 @@ public class SeckillOrderController {
         orderService.cancelOrder(orderId);
         return R.ok("已取消");
     }
+
+    @Operation(summary = "退款")
+    @PostMapping("/refund/{orderId}")
+    public R<String> refund(@PathVariable Long orderId) {
+        orderService.refundOrder(orderId);
+        return R.ok("退款成功");
+    }
 }

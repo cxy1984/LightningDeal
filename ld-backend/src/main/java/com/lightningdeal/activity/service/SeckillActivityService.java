@@ -51,6 +51,11 @@ public interface SeckillActivityService extends IService<SeckillActivity> {
     boolean decrementDbStock(Long activityId);
 
     /**
+     * 取消订单时回退已售数量（sold_stock - 1）
+     */
+    void revertSoldStock(Long activityId);
+
+    /**
      * Redis 回补库存（下单失败或取消订单时使用）
      */
     void incrRedisStock(Long activityId);

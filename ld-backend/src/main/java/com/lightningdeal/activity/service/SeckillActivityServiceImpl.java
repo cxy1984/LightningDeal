@@ -215,6 +215,13 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
     /**
      * Redis 回补库存（下单失败或取消订单时使用）
      */
+    @Override
+    public void revertSoldStock(Long activityId) {
+        seckillActivityMapper.revertSoldStock(activityId);
+        log.info("回退已售数量 activityId={}", activityId);
+    }
+
+    @Override
     public void incrRedisStock(Long activityId) {
         String stockKey = STOCK_PREFIX + activityId;
         redisTemplate.opsForValue().increment(stockKey);

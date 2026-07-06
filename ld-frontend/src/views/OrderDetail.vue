@@ -62,8 +62,8 @@
           <el-button v-if="order.status === 0" type="info" @click="handleCancel">
             取消订单
           </el-button>
-          <el-button v-if="order.status === 1" type="primary" disabled>
-            已支付
+          <el-button v-if="order.status === 1" type="danger" @click="handleRefund">
+            申请退款
           </el-button>
         </div>
       </div>
@@ -113,6 +113,18 @@ async function handleCancel() {
   await ElMessageBox.confirm('确定取消该订单吗？', '提示')
   await api.cancelOrder(order.value.id)
   ElMessage.success('已取消')
+  const res = await api.getOrderDetail(route.params.id)
+  order.value = res.data
+}
+
+async function handleRefund() {
+  await ElMessageBox.confirm('确定要退款吗？退款后将恢复您的购买资格。', '退款确认', {
+    confirmButtonText: '申请退款',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  await api.refundOrder(order.value.id)
+  ElMessage.success('退款成功')
   const res = await api.getOrderDetail(route.params.id)
   order.value = res.data
 }

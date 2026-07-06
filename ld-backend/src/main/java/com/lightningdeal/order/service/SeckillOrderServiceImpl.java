@@ -13,6 +13,7 @@ import com.lightningdeal.order.model.OrderVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,10 @@ import java.time.LocalDateTime;
 public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, SeckillOrder>
         implements SeckillOrderService {
 
+    private static final String USER_COUNT_PREFIX = "seckill:user_count:";
+
     private final SeckillActivityService activityService;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -102,12 +106,39 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void refundOrder(Long orderId) {
+        SeckillOrder order = getById(orderId);
+        if (order == null) {
+            throw new BizException(404, "订单不存在");
+        }
+        if (order.getStatus() != 1) {
+            throw new BizException(400, "仅已支付订单可退款");
+        }
+        order.setStatus(3); // 已退款
+        updateById(order);
+        // 递减 Redis 用户购买计数，允许用户继续抢购
+        String userCountKey = USER_COUNT_PREFIX + order.getActivityId() + ":" + order.getUserId();
+        redisTemplate.opsForValue().decrement(userCountKey);
+        // 回退已售数量
+        activityService.revertSoldStock(order.getActivityId());
+        log.info("订单已退款 orderId={}, activityId={}, userId={}",
+                orderId, order.getActivityId(), order.getUserId());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void cancelOrder(Long orderId) {
         SeckillOrder order = getById(orderId);
         if (order == null) return;
         order.setStatus(2);
         updateById(order);
-        log.info("订单已取消 orderId={}", orderId);
+        // 递减 Redis 用户购买计数，允许用户继续抢购
+        String userCountKey = USER_COUNT_PREFIX + order.getActivityId() + ":" + order.getUserId();
+        redisTemplate.opsForValue().decrement(userCountKey);
+        // 回退已售数量（sold_stock - 1），使"已抢"数量准确
+        activityService.revertSoldStock(order.getActivityId());
+        log.info("订单已取消 orderId={}, activityId={}, userId={}",
+                orderId, order.getActivityId(), order.getUserId());
     }
 
     private OrderVO toVO(SeckillOrder order) {

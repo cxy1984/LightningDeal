@@ -18,4 +18,11 @@ public interface SeckillActivityMapper extends BaseMapper<SeckillActivity> {
     @Update("UPDATE seckill_activity SET sold_stock = sold_stock + 1 " +
             "WHERE id = #{activityId} AND sold_stock < total_stock")
     int decrementStock(@Param("activityId") Long activityId);
+
+    /**
+     * 取消订单时回退已售数量
+     */
+    @Update("UPDATE seckill_activity SET sold_stock = sold_stock - 1 " +
+            "WHERE id = #{activityId} AND sold_stock > 0")
+    int revertSoldStock(@Param("activityId") Long activityId);
 }

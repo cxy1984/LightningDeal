@@ -38,6 +38,7 @@ public class SeckillServiceImpl implements SeckillService {
 
     private static final String STOCK_PREFIX = "seckill:stock:";
     private static final String USER_SET_PREFIX = "seckill:users:";
+    private static final String USER_COUNT_PREFIX = "seckill:user_count:";
     private static final String RESULT_PREFIX = "seckill:result:";
     private static final String LOCK_PREFIX = "seckill:lock:";
 
@@ -80,35 +81,45 @@ public class SeckillServiceImpl implements SeckillService {
             throw new BizException(400, "活动已结束");
         }
 
-        // ===== 2. 校验限购数量（数据库兜底） =====
+        // ===== 2. 校验限购数量（Redis 预检 + 数据库兜底） =====
+        String userCountKey = USER_COUNT_PREFIX + activityId + ":" + userId;
+        Object userCountObj = redisTemplate.opsForValue().get(userCountKey);
+        int userCount = 0;
+        if (userCountObj instanceof Integer) {
+            userCount = (Integer) userCountObj;
+        } else if (userCountObj instanceof Long) {
+            userCount = ((Long) userCountObj).intValue();
+        } else if (userCountObj instanceof String) {
+            try { userCount = Integer.parseInt((String) userCountObj); } catch (NumberFormatException ignored) {}
+        }
+        if (userCount >= activity.getLimitPerUser()) {
+            log.warn("Redis 限购拦截 userId={}, activityId={}, count={}, limit={}",
+                    userId, activityId, userCount, activity.getLimitPerUser());
+            return SeckillResult.fail("已达到限购数量，最多可买 " + activity.getLimitPerUser() + " 件", activityId);
+        }
+
         long bought = orderService.countUserOrders(userId, activityId);
         if (bought >= activity.getLimitPerUser()) {
-            log.warn("超过限购数量 userId={}, activityId={}, bought={}, limit={}",
+            log.warn("数据库限购拦截 userId={}, activityId={}, bought={}, limit={}",
                     userId, activityId, bought, activity.getLimitPerUser());
             return SeckillResult.fail("已达到限购数量，最多可买 " + activity.getLimitPerUser() + " 件", activityId);
         }
 
-        // ===== 3. 校验是否已参与（Redis Set） =====
-        String userSetKey = USER_SET_PREFIX + activityId;
-        Boolean isMember = redisTemplate.opsForSet().isMember(userSetKey, userId.toString());
-        if (Boolean.TRUE.equals(isMember)) {
-            log.warn("重复秒杀 userId={}, activityId={}", userId, activityId);
-            return SeckillResult.repeat(activityId);
-        }
-
-        // ===== 3. Redis 预减库存（Lua 脚本保证原子性） =====
+        // ===== 3. Redis 预减库存 + 记录用户抢购次数（Lua 脚本保证原子性） =====
         String stockKey = STOCK_PREFIX + activityId;
         String luaScript =
                 "local stock = redis.call('GET', KEYS[1]) " +
                 "if stock and tonumber(stock) > 0 then " +
                 "    redis.call('DECR', KEYS[1]) " +
+                "    redis.call('INCR', KEYS[2]) " +
+                "    redis.call('EXPIRE', KEYS[2], 86400) " +
                 "    return 1 " +
                 "else " +
                 "    return 0 " +
                 "end";
 
         DefaultRedisScript<Long> redisScript = new DefaultRedisScript<>(luaScript, Long.class);
-        Long result = redisTemplate.execute(redisScript, Arrays.asList(stockKey, userSetKey));
+        Long result = redisTemplate.execute(redisScript, Arrays.asList(stockKey, userCountKey));
 
         if (result == null || result == 0) {
             log.info("库存不足 userId={}, activityId={}", userId, activityId);
@@ -116,6 +127,7 @@ public class SeckillServiceImpl implements SeckillService {
         }
 
         // ===== 5. 标记用户已参与（熔断机制 - 先标记，失败则回滚） =====
+        String userSetKey = USER_SET_PREFIX + activityId;
         redisTemplate.opsForSet().add(userSetKey, userId.toString());
 
         // ===== 6. 异步下单（MQ 可用走 MQ，不可用同步处理） =====
@@ -130,6 +142,7 @@ public class SeckillServiceImpl implements SeckillService {
                 // MQ 发送失败，回滚 Redis 库存和用户标记
                 redisTemplate.opsForValue().increment(stockKey);
                 redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                redisTemplate.opsForValue().decrement(userCountKey);
                 log.error("MQ 发送失败，回滚库存 userId={}, activityId={}", userId, activityId, e);
                 return SeckillResult.fail("系统繁忙，请重试", activityId);
             }
@@ -140,6 +153,7 @@ public class SeckillServiceImpl implements SeckillService {
             if (!dbSuccess) {
                 activityService.incrRedisStock(activityId);
                 redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                redisTemplate.opsForValue().decrement(userCountKey);
                 return SeckillResult.fail("库存不足", activityId);
             }
             try {
@@ -148,6 +162,7 @@ public class SeckillServiceImpl implements SeckillService {
             } catch (Exception e) {
                 activityService.incrRedisStock(activityId);
                 redisTemplate.opsForSet().remove(userSetKey, userId.toString());
+                redisTemplate.opsForValue().decrement(userCountKey);
                 return SeckillResult.fail("下单失败", activityId);
             }
         }
