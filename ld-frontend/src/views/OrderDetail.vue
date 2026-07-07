@@ -56,7 +56,7 @@
         <el-divider />
 
         <div class="actions">
-          <el-button v-if="order.status === 0" type="success" size="large" @click="handlePay">
+          <el-button v-if="order.status === 0" type="success" size="large" @click="$router.push('/order/pay/' + order.id)">
             立即支付 ¥{{ order.totalAmount }}
           </el-button>
           <el-button v-if="order.status === 0" type="info" @click="handleCancel">
@@ -99,14 +99,6 @@ onMounted(async () => {
 const tagType = () => {
   const map = ['warning', 'success', 'info', 'danger']
   return map[order.value?.status] || 'info'
-}
-
-async function handlePay() {
-  await api.payOrder(order.value.id)
-  ElMessage.success('支付成功')
-  // 刷新
-  const res = await api.getOrderDetail(route.params.id)
-  order.value = res.data
 }
 
 async function handleCancel() {

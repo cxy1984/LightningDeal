@@ -43,6 +43,12 @@ const routes = [
         meta: { title: '实时大屏' }
       },
       {
+        path: 'order/pay/:id',
+        name: 'PayPage',
+        component: () => import('@/views/PayPage.vue'),
+        meta: { title: '确认支付', requireAuth: true }
+      },
+      {
         path: 'user/center',
         name: 'UserCenter',
         component: () => import('@/views/UserCenter.vue'),

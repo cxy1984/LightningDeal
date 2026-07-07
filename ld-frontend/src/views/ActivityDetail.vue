@@ -306,7 +306,7 @@ function retrySeckill() {
 
 function goToOrder() {
   if (myResult.value?.orderId) {
-    router.push(`/order/detail/${myResult.value.orderId}`)
+    router.push(`/order/pay/${myResult.value.orderId}`)
   }
 }
 

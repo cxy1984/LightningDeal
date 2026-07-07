@@ -27,7 +27,7 @@
       <el-table-column label="操作" width="280" align="center">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="$router.push('/order/detail/' + row.id)">详情</el-button>
-          <el-button v-if="row.status === 0" type="success" size="small" @click="handlePay(row.id)">支付</el-button>
+                    <el-button v-if="row.status === 0" type="success" size="small" @click="$router.push('/order/pay/' + row.id)">支付</el-button>
           <el-button v-if="row.status === 0" type="info" size="small" @click="handleCancel(row.id)">取消</el-button>
         </template>
       </el-table-column>
@@ -76,12 +76,6 @@ async function fetchOrders() {
 
 function statusTagType(status) {
   return ['warning', 'success', 'info', 'danger'][status] || 'info'
-}
-
-async function handlePay(orderId) {
-  await api.payOrder(orderId)
-  ElMessage.success('支付成功')
-  fetchOrders()
 }
 
 async function handleCancel(orderId) {
