@@ -54,11 +54,11 @@ public class ActivityIndex {
     @Schema(description = "已售数量")
     private Integer soldStock;
 
-    @Field(type = FieldType.Date)
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss")
     @Schema(description = "开始时间")
     private LocalDateTime startTime;
 
-    @Field(type = FieldType.Date)
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss")
     @Schema(description = "结束时间")
     private LocalDateTime endTime;
 
@@ -66,7 +66,7 @@ public class ActivityIndex {
     @Schema(description = "状态")
     private Integer status;
 
-    @Field(type = FieldType.Date)
+    @Field(type = FieldType.Date, format = {}, pattern = "uuuu-MM-dd'T'HH:mm:ss")
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 }

@@ -2,9 +2,14 @@
   <div class="manage-page">
     <div class="page-header">
       <h2>📋 活动管理</h2>
-      <el-button type="primary" @click="$router.push('/admin/activity/create')">
-        <el-icon><Plus /></el-icon>创建活动
-      </el-button>
+      <div class="header-actions">
+        <el-button @click="handleSyncSearch" :loading="syncLoading">
+          <el-icon><Upload /></el-icon> 同步到 ES
+        </el-button>
+        <el-button type="primary" @click="$router.push('/admin/activity/create')">
+          <el-icon><Plus /></el-icon>创建活动
+        </el-button>
+      </div>
     </div>
 
     <el-table :data="list" v-loading="loading" stripe style="width: 100%">
@@ -82,7 +87,7 @@
 import { ref, onMounted } from 'vue'
 import { api } from '@/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Upload } from '@element-plus/icons-vue'
 
 const list = ref([])
 const page = ref(1)
@@ -91,6 +96,7 @@ const total = ref(0)
 const loading = ref(false)
 const statusLoading = ref(null)
 const deleteLoading = ref(null)
+const syncLoading = ref(false)
 
 onMounted(() => fetchList())
 
@@ -143,10 +149,23 @@ async function handleDelete(row) {
     deleteLoading.value = null
   }
 }
+
+async function handleSyncSearch() {
+  syncLoading.value = true
+  try {
+    const res = await api.syncSearch()
+    ElMessage.success(res.data || '同步成功')
+  } catch {
+    ElMessage.error('同步失败')
+  } finally {
+    syncLoading.value = false
+  }
+}
 </script>
 
 <style scoped>
 .manage-page { max-width: 1400px; margin: 0 auto; }
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-actions { display: flex; gap: 12px; }
 .pagination { text-align: center; margin-top: 24px; }
 </style>

@@ -69,6 +69,7 @@ export const api = {
 
   // 搜索
   searchActivity: params => request.get('/search/activity', { params }),
+  syncSearch: () => request.post('/search/sync'),
 
   // 大屏
   getDashboardData: () => request.get('/dashboard/data'),
