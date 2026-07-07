@@ -43,6 +43,12 @@ const routes = [
         meta: { title: '实时大屏' }
       },
       {
+        path: 'user/center',
+        name: 'UserCenter',
+        component: () => import('@/views/UserCenter.vue'),
+        meta: { title: '用户中心', requireAuth: true }
+      },
+      {
         path: 'admin/activity',
         name: 'ActivityManage',
         component: () => import('@/views/admin/ActivityManage.vue'),

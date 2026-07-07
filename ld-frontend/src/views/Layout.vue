@@ -21,7 +21,8 @@
                 {{ userStore.user?.nickname || userStore.user?.username || '用户' }}
               </span>
               <template #dropdown>
-                <el-dropdown-item @click="handleLogout">退出登录</el-dropdown-item>
+                <el-dropdown-item @click="$router.push('/user/center')">用户中心</el-dropdown-item>
+                <el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item>
               </template>
             </el-dropdown>
           </template>

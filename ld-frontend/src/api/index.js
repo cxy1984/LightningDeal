@@ -71,6 +71,11 @@ export const api = {
   searchActivity: params => request.get('/search/activity', { params }),
   syncSearch: () => request.post('/search/sync'),
 
+  // 用户中心
+  getUserInfo: () => request.get('/user/info'),
+  updateProfile: data => request.put('/user/profile', data),
+  updatePassword: data => request.put('/user/password', data),
+
   // 大屏
   getDashboardData: () => request.get('/dashboard/data'),
   getQps: () => request.get('/dashboard/qps'),

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.lightningdeal.user.entity.User;
 import com.lightningdeal.user.model.LoginRequest;
 import com.lightningdeal.user.model.RegisterRequest;
+import com.lightningdeal.user.model.UpdatePasswordRequest;
+import com.lightningdeal.user.model.UpdateProfileRequest;
 import com.lightningdeal.user.model.UserVO;
 
 /**
@@ -25,4 +27,14 @@ public interface UserService extends IService<User> {
      * 根据用户ID获取用户信息
      */
     UserVO getUserInfo(Long userId);
+
+    /**
+     * 修改个人信息
+     */
+    UserVO updateProfile(Long userId, UpdateProfileRequest request);
+
+    /**
+     * 修改密码
+     */
+    void updatePassword(Long userId, UpdatePasswordRequest request);
 }

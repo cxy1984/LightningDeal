@@ -7,6 +7,8 @@ import com.lightningdeal.user.entity.User;
 import com.lightningdeal.user.mapper.UserMapper;
 import com.lightningdeal.user.model.LoginRequest;
 import com.lightningdeal.user.model.RegisterRequest;
+import com.lightningdeal.user.model.UpdatePasswordRequest;
+import com.lightningdeal.user.model.UpdateProfileRequest;
 import com.lightningdeal.user.model.UserVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -73,6 +75,41 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BizException(404, "用户不存在");
         }
         return toVO(user);
+    }
+
+    @Override
+    public UserVO updateProfile(Long userId, UpdateProfileRequest request) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new BizException(404, "用户不存在");
+        }
+        user.setNickname(request.getNickname());
+        if (request.getPhone() != null) {
+            user.setPhone(request.getPhone());
+        }
+        if (request.getEmail() != null) {
+            user.setEmail(request.getEmail());
+        }
+        if (request.getAvatar() != null) {
+            user.setAvatar(request.getAvatar());
+        }
+        updateById(user);
+        log.info("用户信息更新 userId={}", userId);
+        return toVO(user);
+    }
+
+    @Override
+    public void updatePassword(Long userId, UpdatePasswordRequest request) {
+        User user = getById(userId);
+        if (user == null) {
+            throw new BizException(404, "用户不存在");
+        }
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new BizException(400, "原密码错误");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        updateById(user);
+        log.info("密码修改成功 userId={}", userId);
     }
 
     private UserVO toVO(User user) {

@@ -3,6 +3,8 @@ package com.lightningdeal.user.controller;
 import com.lightningdeal.common.response.R;
 import com.lightningdeal.user.model.LoginRequest;
 import com.lightningdeal.user.model.RegisterRequest;
+import com.lightningdeal.user.model.UpdatePasswordRequest;
+import com.lightningdeal.user.model.UpdateProfileRequest;
 import com.lightningdeal.user.model.UserVO;
 import com.lightningdeal.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -44,5 +46,22 @@ public class UserController {
     public R<UserVO> getUserInfo(Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
         return R.ok(userService.getUserInfo(userId));
+    }
+
+    @Operation(summary = "修改个人信息")
+    @PutMapping("/profile")
+    public R<UserVO> updateProfile(@Valid @RequestBody UpdateProfileRequest request,
+                                   Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        return R.ok(userService.updateProfile(userId, request));
+    }
+
+    @Operation(summary = "修改密码")
+    @PutMapping("/password")
+    public R<String> updatePassword(@Valid @RequestBody UpdatePasswordRequest request,
+                                    Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        userService.updatePassword(userId, request);
+        return R.ok("密码修改成功");
     }
 }
