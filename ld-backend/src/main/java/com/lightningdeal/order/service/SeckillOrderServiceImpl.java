@@ -121,6 +121,9 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
         redisTemplate.opsForValue().decrement(userCountKey);
         // 回退已售数量
         activityService.revertSoldStock(order.getActivityId());
+        // 恢复 Redis 库存
+        String stockKey = "seckill:stock:" + order.getActivityId();
+        redisTemplate.opsForValue().increment(stockKey);
         log.info("订单已退款 orderId={}, activityId={}, userId={}",
                 orderId, order.getActivityId(), order.getUserId());
     }
@@ -137,6 +140,12 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
         redisTemplate.opsForValue().decrement(userCountKey);
         // 回退已售数量（sold_stock - 1），使"已抢"数量准确
         activityService.revertSoldStock(order.getActivityId());
+        // 恢复 Redis 库存（预减的库存退回去）
+        String stockKey = "seckill:stock:" + order.getActivityId();
+        redisTemplate.opsForValue().increment(stockKey);
+        // 移除用户标记，允许重新抢购
+        String userSetKey = "seckill:users:" + order.getActivityId();
+        redisTemplate.opsForSet().remove(userSetKey, order.getUserId().toString());
         log.info("订单已取消 orderId={}, activityId={}, userId={}",
                 orderId, order.getActivityId(), order.getUserId());
     }

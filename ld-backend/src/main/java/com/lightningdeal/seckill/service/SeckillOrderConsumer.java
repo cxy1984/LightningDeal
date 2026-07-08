@@ -72,7 +72,7 @@ public class SeckillOrderConsumer {
             // ===== 4. 发送延迟消息，超时未支付则取消订单 =====
             rabbitTemplate.convertAndSend(DELAY_EXCHANGE, DELAY_ROUTING_KEY,
                     order.getId(), msg -> {
-                        msg.getMessageProperties().setDelay(30 * 60 * 1000); // 30min 延迟
+                        msg.getMessageProperties().setDelay(30 * 60 * 1000); // 30min
                         return msg;
                     });
 
@@ -114,16 +114,16 @@ public class SeckillOrderConsumer {
             SeckillOrder order = orderService.getById(orderId);
             if (order != null && order.getStatus() == 0) { // 未支付
                 orderService.cancelOrder(orderId);
-                activityService.incrRedisStock(order.getActivityId());
-                // 移除用户标记，允许重新抢购
-                redisTemplate.opsForSet().remove("seckill:users:" + order.getActivityId(), order.getUserId().toString());
-                SeckillResult result = SeckillResult.fail("订单超时已取消", order.getActivityId());
-                notifyUser(order.getUserId(), order.getActivityId(), result);
+                log.info("订单超时已取消 orderId={}, activityId={}, userId={}",
+                        orderId, order.getActivityId(), order.getUserId());
+            } else if (order != null) {
+                log.info("订单无需取消 orderId={}, status={}", orderId, order.getStatus());
             }
             ack(channel, deliveryTag);
         } catch (Exception e) {
             log.error("订单超时处理异常 orderId={}", orderId, e);
-            nack(channel, deliveryTag);
+            // 异常时 ack 避免死循环，人工处理
+            ack(channel, deliveryTag);
         }
     }
 
