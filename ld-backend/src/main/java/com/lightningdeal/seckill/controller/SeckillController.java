@@ -29,7 +29,7 @@ public class SeckillController {
     @RateLimit(
             qps = 5,
             capacity = 10,
-            key = "'seckill:' + #request.activityId + ':' + #authentication.principal",
+            key = "'seckill:' + #request.activityId",
             message = "秒杀太火爆啦，请稍后再试"
     )
     public R<SeckillResult> execute(@Valid @RequestBody SeckillRequest request,
