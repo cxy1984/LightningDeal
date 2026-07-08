@@ -72,6 +72,7 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
         activity.setStatus(0); // 草稿
         save(activity);
         log.info("创建秒杀活动 activityId={}, name={}", activity.getId(), activity.getName());
+        searchService.syncActivity(getById(activity.getId()));
         return toVO(activity);
     }
 
@@ -92,6 +93,7 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
         if (activity.getTotalStock() != null) {
             preheatStock(activity.getId());
         }
+        searchService.syncActivity(getById(activity.getId()));
         return toVO(getById(activity.getId()));
     }
 

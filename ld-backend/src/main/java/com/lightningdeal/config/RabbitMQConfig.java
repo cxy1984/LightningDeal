@@ -37,6 +37,11 @@ public class RabbitMQConfig {
     public static final String DELAY_QUEUE = "seckill.delay.queue";
     public static final String DELAY_ROUTING_KEY = "seckill.delay";
 
+    // ===== ES 同步队列 =====
+    public static final String ES_SYNC_EXCHANGE = "seckill.es.exchange";
+    public static final String ES_SYNC_QUEUE = "seckill.es.queue";
+    public static final String ES_SYNC_ROUTING_KEY = "seckill.es.sync";
+
     /**
      * 秒杀订单交换机 (topic)
      */
@@ -114,6 +119,32 @@ public class RabbitMQConfig {
     @Bean
     public Binding delayBinding() {
         return BindingBuilder.bind(delayQueue()).to(delayExchange()).with(DELAY_ROUTING_KEY).noargs();
+    }
+
+    // ===== ES 同步 =====
+
+    /**
+     * ES 同步交换机 (topic)
+     */
+    @Bean
+    public TopicExchange esSyncExchange() {
+        return ExchangeBuilder.topicExchange(ES_SYNC_EXCHANGE).durable(true).build();
+    }
+
+    /**
+     * ES 同步队列
+     */
+    @Bean
+    public Queue esSyncQueue() {
+        return QueueBuilder.durable(ES_SYNC_QUEUE).build();
+    }
+
+    /**
+     * 绑定 ES 同步队列
+     */
+    @Bean
+    public Binding esSyncBinding() {
+        return BindingBuilder.bind(esSyncQueue()).to(esSyncExchange()).with(ES_SYNC_ROUTING_KEY);
     }
 
     /**
