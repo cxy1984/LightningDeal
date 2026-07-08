@@ -2,6 +2,7 @@ package com.lightningdeal.task;
 
 import com.lightningdeal.activity.entity.SeckillActivity;
 import com.lightningdeal.activity.service.SeckillActivityService;
+import com.lightningdeal.search.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -30,6 +31,7 @@ public class ActivityStatusTask {
 
     private final SeckillActivityService activityService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final SearchService searchService;
 
     private static final String STOCK_PREFIX = "seckill:stock:";
     private static final String SOLD_PREFIX = "seckill:sold:";
@@ -54,6 +56,7 @@ public class ActivityStatusTask {
                 activity.setStatus(2);
                 activityService.updateById(activity);
                 activityService.preheatStock(activity.getId());
+                searchService.syncActivity(activity);
                 log.info("活动状态流转：上架→进行中 activityId={}, name={}", activity.getId(), activity.getName());
             } catch (Exception e) {
                 log.error("活动状态流转失败（上架→进行中）activityId={}", activity.getId(), e);
@@ -70,6 +73,7 @@ public class ActivityStatusTask {
             try {
                 activity.setStatus(3);
                 activityService.updateById(activity);
+                searchService.syncActivity(activity);
                 clearRedisCache(activity.getId());
                 log.info("活动状态流转：进行中→已结束 activityId={}, name={}", activity.getId(), activity.getName());
             } catch (Exception e) {

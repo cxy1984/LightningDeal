@@ -10,6 +10,7 @@ import com.lightningdeal.activity.model.ActivityVO;
 import com.lightningdeal.common.exception.BizException;
 import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.service.SeckillOrderService;
+import com.lightningdeal.search.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,7 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final SeckillActivityMapper seckillActivityMapper;
+    private final SearchService searchService;
 
     @Autowired
     @org.springframework.context.annotation.Lazy
@@ -122,6 +124,10 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
 
         // 3. 逻辑删除活动
         removeById(activityId);
+
+        // 4. 同步删除 ES 索引
+        searchService.deleteIndex(activityId);
+
         log.info("删除活动 activityId={}, name={}, 取消订单数={}",
                 activityId, activity.getName(), pendingOrders.size());
     }
@@ -162,6 +168,9 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
         activity.setStatus(status);
         updateById(activity);
         log.info("更新活动状态 activityId={}, status={}", activityId, status);
+
+        // 同步 ES
+        searchService.syncActivity(getById(activityId));
 
         // 上架时预热库存
         if (status == 1) {
