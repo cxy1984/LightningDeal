@@ -13,7 +13,7 @@ public interface SeckillActivityService extends IService<SeckillActivity> {
     /**
      * 分页查询活动列表
      */
-    IPage<ActivityVO> listActivities(int page, int size, Integer status);
+    IPage<ActivityVO> listActivities(int page, int size, Integer status, String name);
 
     /**
      * 获取活动详情

@@ -44,9 +44,10 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
     private SeckillOrderService orderService;
 
     @Override
-    public IPage<ActivityVO> listActivities(int page, int size, Integer status) {
+    public IPage<ActivityVO> listActivities(int page, int size, Integer status, String name) {
         LambdaQueryWrapper<SeckillActivity> wrapper = new LambdaQueryWrapper<SeckillActivity>()
                 .eq(status != null && status > 0, SeckillActivity::getStatus, status)
+                .like(name != null && !name.isEmpty(), SeckillActivity::getName, name)
                 .orderByDesc(SeckillActivity::getCreateTime);
 
         IPage<SeckillActivity> entityPage = page(new Page<>(page, size), wrapper);

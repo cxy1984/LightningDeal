@@ -27,8 +27,9 @@ public class SeckillActivityController {
     public R<IPage<ActivityVO>> list(
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") int size,
-            @Parameter(description = "状态筛选") @RequestParam(required = false) Integer status) {
-        return R.ok(activityService.listActivities(page, size, status));
+            @Parameter(description = "状态筛选") @RequestParam(required = false) Integer status,
+            @Parameter(description = "活动名称搜索") @RequestParam(required = false) String name) {
+        return R.ok(activityService.listActivities(page, size, status, name));
     }
 
     @Operation(summary = "活动详情")
