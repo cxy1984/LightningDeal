@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.multiMatchQuery;
@@ -79,16 +80,37 @@ public class SearchServiceImpl implements SearchService {
 
     @Override
     public Page<ActivityIndex> search(String keyword, Pageable pageable) {
-        // 使用 ik 分词多字段搜索
+        // 使用 ik 分词多字段搜索 + 高亮
+        org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder highlightBuilder =
+                new org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder()
+                .preTags("<em class='search-highlight'>")
+                .postTags("</em>")
+                .field("name")
+                .field("goodsName")
+                .field("goodsDescription");
         NativeSearchQuery query = new NativeSearchQueryBuilder()
                 .withQuery(multiMatchQuery(keyword, "name", "goodsName", "goodsDescription")
                         .analyzer("ik_max_word"))
+                .withHighlightBuilder(highlightBuilder)
                 .withPageable(pageable)
                 .build();
 
         SearchHits<ActivityIndex> searchHits = elasticsearchTemplate.search(query, ActivityIndex.class);
         List<ActivityIndex> content = searchHits.stream()
-                .map(SearchHit::getContent)
+                .map(hit -> {
+                    ActivityIndex index = hit.getContent();
+                    Map<String, List<String>> highlights = hit.getHighlightFields();
+                    if (highlights.containsKey("name")) {
+                        index.setName(highlights.get("name").get(0));
+                    }
+                    if (highlights.containsKey("goodsName")) {
+                        index.setGoodsName(highlights.get("goodsName").get(0));
+                    }
+                    if (highlights.containsKey("goodsDescription")) {
+                        index.setGoodsDescription(highlights.get("goodsDescription").get(0));
+                    }
+                    return index;
+                })
                 .collect(Collectors.toList());
 
         return new PageImpl<>(content, pageable, searchHits.getTotalHits());

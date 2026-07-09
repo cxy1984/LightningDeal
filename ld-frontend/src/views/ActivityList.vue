@@ -21,7 +21,7 @@
             </div>
           </div>
           <div class="card-body">
-            <h3 class="card-title">{{ item.name }}</h3>
+            <h3 class="card-title" v-html="item.name"></h3>
             <div class="card-price">
               <span class="flash-price">¥{{ item.flashPrice }}</span>
               <span class="original-price">¥{{ item.originalPrice }}</span>
@@ -132,5 +132,7 @@ function formatCountdown(ms) {
 .card-progress { margin-bottom: 8px; }
 .card-stats { display: flex; justify-content: space-between; font-size: 13px; color: #666; }
 .countdown { color: #e74c3c; font-weight: bold; }
+/* 搜索结果高亮 */
+:deep(.search-highlight) { color: #e74c3c; font-weight: bold; background: #fff3cd; padding: 0 2px; border-radius: 2px; }
 .pagination { text-align: center; margin-top: 24px; }
 </style>

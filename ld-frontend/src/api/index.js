@@ -33,8 +33,20 @@ request.interceptors.response.use(
       localStorage.removeItem('token')
       window.location.href = '/login'
       ElMessage.error('登录已过期，请重新登录')
+    } else if (error.code === 'ECONNABORTED') {
+      ElMessage.error('请求超时，网络似乎不太好，请重试')
+    } else if (error.response?.status >= 500) {
+      ElMessage.error('服务器繁忙，请稍后再试')
+    } else if (error.message === 'Network Error') {
+      ElMessage.error('网络连接失败，请检查网络')
+    } else if (error.response?.status === 429) {
+      // 限流错误在秒杀页面已有弹窗处理，全局只提示，不覆盖
+      if (!error.config?.url?.includes('/seckill/')) {
+        ElMessage.warning('操作太频繁，请稍后再试')
+      }
     } else {
-      ElMessage.error(error.message || '网络错误')
+      const msg = error.response?.data?.msg || error.message || '网络错误'
+      ElMessage.error(msg)
     }
     return Promise.reject(error)
   }

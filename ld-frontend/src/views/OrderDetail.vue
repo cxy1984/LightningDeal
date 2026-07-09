@@ -47,6 +47,10 @@
             <span class="label">创建时间</span>
             <span class="value">{{ order.createTime }}</span>
           </div>
+          <div class="info-row" v-if="order.status === 0">
+            <span class="label">支付剩余</span>
+            <span class="value countdown-red">{{ countdownText }}</span>
+          </div>
           <div class="info-row" v-if="order.status === 1">
             <span class="label">支付时间</span>
             <span class="value">{{ order.payTime || '-' }}</span>
@@ -84,17 +88,46 @@ const router = useRouter()
 
 const order = ref(null)
 const loading = ref(true)
+const countdownText = ref('')
+let countdownTimer = null
 
 onMounted(async () => {
   try {
     const res = await api.getOrderDetail(route.params.id)
     order.value = res.data
+    startCountdown()
   } catch (e) {
     order.value = null
   } finally {
     loading.value = false
   }
 })
+
+onUnmounted(() => {
+  clearInterval(countdownTimer)
+})
+
+function startCountdown() {
+  if (!order.value || order.value.status !== 0) return
+  // 根据创建时间计算剩余支付时间（30分钟过期）
+  const created = new Date(order.value.createTime).getTime()
+  const timeout = 30 * 60 * 1000
+  const update = () => {
+    const remain = timeout - (Date.now() - created)
+    if (remain <= 0) {
+      countdownText.value = '已过期'
+      order.value.status = 2
+      order.value.statusText = '已取消'
+      clearInterval(countdownTimer)
+    } else {
+      const m = Math.floor(remain / 60000)
+      const s = Math.floor((remain % 60000) / 1000)
+      countdownText.value = `剩余 ${m}:${s.toString().padStart(2, '0')}`
+    }
+  }
+  update()
+  countdownTimer = setInterval(update, 1000)
+}
 
 const tagType = () => {
   const map = ['warning', 'success', 'info', 'danger']
@@ -169,6 +202,7 @@ async function handleRefund() {
 }
 .label { width: 100px; color: #999; flex-shrink: 0; }
 .value { color: #333; }
+.countdown-red { color: #e74c3c; font-weight: bold; font-size: 16px; }
 .actions {
   display: flex;
   justify-content: center;

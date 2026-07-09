@@ -29,6 +29,7 @@
           <el-button type="primary" size="small" @click="$router.push('/order/detail/' + row.id)">详情</el-button>
                     <el-button v-if="row.status === 0" type="success" size="small" @click="$router.push('/order/pay/' + row.id)">支付</el-button>
           <el-button v-if="row.status === 0" type="info" size="small" @click="handleCancel(row.id)">取消</el-button>
+          <el-button v-if="row.status === 1" type="danger" size="small" @click="handleRefund(row)">退款</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -82,6 +83,17 @@ async function handleCancel(orderId) {
   await ElMessageBox.confirm('确定取消该订单吗？', '提示')
   await api.cancelOrder(orderId)
   ElMessage.success('已取消')
+  fetchOrders()
+}
+
+async function handleRefund(row) {
+  await ElMessageBox.confirm(
+    `确定要对「${row.goodsName}」申请退款吗？\n退款金额：¥${row.totalAmount}`,
+    '退款确认',
+    { confirmButtonText: '申请退款', cancelButtonText: '取消', type: 'warning' }
+  )
+  await api.refundOrder(row.id)
+  ElMessage.success('退款成功')
   fetchOrders()
 }
 </script>

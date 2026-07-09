@@ -63,22 +63,27 @@
             <el-button @click="$router.push('/activity')" size="large">返回列表</el-button>
           </div>
 
-          <!-- 秒杀结果展示（内嵌） -->
-          <div v-if="myResult" class="my-result-card" :class="'result-' + myResult.status">
-            <div class="result-icon">{{ resultIcon }}</div>
-            <div class="result-body">
-              <p class="result-title">{{ myResult.message }}</p>
-              <p class="result-sub" v-if="myResult.status === 1">正在处理，请稍候...</p>
+          <!-- 秒杀结果展示（弹窗） -->
+          <el-dialog v-model="resultDialogVisible" :title="resultDialogTitle" :width="400" :close-on-click-modal="false" :show-close="true" class="result-dialog">
+            <div class="dialog-result" :class="'result-' + (myResult?.status || 3)">
+              <div class="dialog-icon">{{ resultIcon }}</div>
+              <div class="dialog-body">
+                <p class="dialog-title">{{ myResult?.message || '' }}</p>
+                <p class="dialog-sub" v-if="myResult?.status === RESULT_QUEUING">正在排队处理，请稍候...</p>
+              </div>
             </div>
-            <div class="result-actions">
-              <el-button v-if="myResult.status === 2 && myResult.orderId" type="primary" size="small" @click="goToOrder">
-                查看订单
-              </el-button>
-              <el-button v-if="myResult.status === 5" type="danger" size="small" @click="retrySeckill" :disabled="seckillDisabled || seckilling">
-                再试一次
-              </el-button>
-            </div>
-          </div>
+            <template #footer>
+              <span class="dialog-footer">
+                <el-button v-if="myResult?.status === RESULT_SUCCESS && myResult?.orderId" type="primary" @click="goToOrder">
+                  查看订单
+                </el-button>
+                <el-button v-if="myResult?.status === RESULT_FAIL || myResult?.status === RESULT_LIMITED" type="danger" @click="retrySeckill" :disabled="seckillDisabled || seckilling">
+                  再试一次
+                </el-button>
+                <el-button @click="resultDialogVisible = false">关闭</el-button>
+              </span>
+            </template>
+          </el-dialog>
         </div>
       </el-col>
     </el-row>
@@ -120,6 +125,8 @@ const activity = ref(null)
 const seckilling = ref(false)
 const flashStream = ref([])
 const myResult = ref(null)
+const resultDialogVisible = ref(false)
+const resultDialogTitle = ref('')
 
 // 秒杀结果状态
 const RESULT_QUEUING = 1
@@ -237,6 +244,11 @@ function handleResult(result) {
     message: result.message,
     orderId: result.orderId || null
   }
+  const titles = { 1: '⏳ 排队中', 2: '🎉 抢购成功', 3: '😢 抢购失败', 4: '⚠️ 重复参与', 5: '😤 太火爆了' }
+  resultDialogTitle.value = titles[myResult.value.status] || '提示'
+  if (myResult.value.status !== RESULT_QUEUING) {
+    resultDialogVisible.value = true
+  }
 
   // 更新成交记录
   flashStream.value.unshift({
@@ -295,6 +307,8 @@ async function handleSeckill() {
     // 限流或其他异常（RateLimitAspect 返回 429）
     const msg = e?.message || '系统繁忙'
     myResult.value = { status: RESULT_LIMITED, message: msg, orderId: null }
+    resultDialogTitle.value = '😤 太火爆了'
+    resultDialogVisible.value = true
     seckilling.value = false
   }
 }
@@ -345,28 +359,6 @@ function formatTime(ts) {
 .countdown-timer { font-size: 36px; font-weight: bold; color: #e74c3c; letter-spacing: 4px; }
 .action-section { display: flex; gap: 16px; }
 .seckill-btn { flex: 1; font-size: 18px; height: 56px; }
-
-/* 内嵌结果卡片 */
-.my-result-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 16px;
-  padding: 16px 20px;
-  border-radius: 12px;
-  border: 1px solid;
-}
-.result-icon { font-size: 36px; flex-shrink: 0; }
-.result-body { flex: 1; min-width: 0; }
-.result-title { margin: 0; font-weight: bold; font-size: 16px; }
-.result-sub { margin: 4px 0 0; font-size: 13px; color: #666; }
-.result-actions { flex-shrink: 0; }
-.result-1 { background: #fff3cd; border-color: #ffc107; }
-.result-2 { background: #d4edda; border-color: #28a745; }
-.result-3 { background: #f8d7da; border-color: #dc3545; }
-.result-4 { background: #d1ecf1; border-color: #17a2b8; }
-.result-5 { background: #f8d7da; border-color: #e74c3c; }
-
 .flash-stream { margin-top: 32px; }
 .stream-container { max-height: 300px; overflow-y: auto; }
 .stream-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
@@ -377,4 +369,24 @@ function formatTime(ts) {
 .status-1 { color: #409eff; }
 .status-2 { color: #e74c3c; }
 .status-3 { color: #999; }
+
+/* 弹窗结果样式 */
+.dialog-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 16px;
+  border-radius: 8px;
+  text-align: center;
+}
+.dialog-icon { font-size: 48px; }
+.dialog-title { font-size: 18px; font-weight: bold; margin: 0; }
+.dialog-sub { font-size: 14px; color: #666; margin: 4px 0 0; }
+.dialog-result.result-2 { background: #f0fff4; border: 1px solid #d4edda; }
+.dialog-result.result-3 { background: #fff5f5; border: 1px solid #f8d7da; }
+.dialog-result.result-4 { background: #fffdf0; border: 1px solid #fff3cd; }
+.dialog-result.result-5 { background: #fff5f5; border: 1px solid #f8d7da; }
+.result-dialog .el-dialog__body { padding: 20px; }
+.dialog-footer { display: flex; justify-content: center; gap: 12px; }
 </style>
