@@ -2,12 +2,44 @@
   <div class="orders-page">
     <h2 class="page-title">📦 我的订单</h2>
 
-    <el-tabs v-model="statusFilter" @tab-change="fetchOrders">
-      <el-tab-pane label="全部" name="" />
-      <el-tab-pane label="待支付" name="0" />
-      <el-tab-pane label="已支付" name="1" />
-      <el-tab-pane label="已取消" name="2" />
-    </el-tabs>
+    <!-- 筛选栏 -->
+    <div class="filter-bar">
+      <el-select v-model="statusFilter" placeholder="订单状态" style="width:130px" @change="resetAndFetch">
+        <el-option label="全部" value="" />
+        <el-option label="待支付" value="0" />
+        <el-option label="已支付" value="1" />
+        <el-option label="已取消" value="2" />
+      </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        type="daterange"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        value-format="YYYY-MM-DD"
+        style="width:260px"
+        @change="resetAndFetch"
+      />
+      <el-input
+        v-model="minAmount"
+        placeholder="最低金额"
+        style="width:100px"
+        type="number"
+        min="0"
+        @change="resetAndFetch"
+      />
+      <span style="color:#999">—</span>
+      <el-input
+        v-model="maxAmount"
+        placeholder="最高金额"
+        style="width:100px"
+        type="number"
+        min="0"
+        @change="resetAndFetch"
+      />
+      <el-button type="primary" @click="resetAndFetch">筛选</el-button>
+      <el-button @click="resetFilters">重置</el-button>
+    </div>
 
     <el-table :data="list" style="width:100%" v-loading="loading" stripe>
       <el-table-column label="订单编号" prop="orderNo" width="200" />
@@ -57,17 +89,40 @@ const size = ref(10)
 const total = ref(0)
 const loading = ref(false)
 const statusFilter = ref('')
+const dateRange = ref(null)
+const minAmount = ref('')
+const maxAmount = ref('')
 
 onMounted(() => fetchOrders())
+
+function resetAndFetch() {
+  page.value = 1
+  fetchOrders()
+}
+
+function resetFilters() {
+  statusFilter.value = ''
+  dateRange.value = null
+  minAmount.value = ''
+  maxAmount.value = ''
+  resetAndFetch()
+}
 
 async function fetchOrders() {
   loading.value = true
   try {
-    const res = await api.getOrders({
+    const params = {
       page: page.value,
       size: size.value,
       status: statusFilter.value || undefined
-    })
+    }
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.startDate = dateRange.value[0]
+      params.endDate = dateRange.value[1]
+    }
+    if (minAmount.value) params.minAmount = minAmount.value
+    if (maxAmount.value) params.maxAmount = maxAmount.value
+    const res = await api.getOrders(params)
     list.value = res.data.records || []
     total.value = res.data.total || 0
   } finally {
@@ -101,5 +156,15 @@ async function handleRefund(row) {
 <style scoped>
 .orders-page { max-width: 1200px; margin: 0 auto; }
 .page-title { margin-bottom: 20px; }
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
 .pagination { text-align: center; margin-top: 24px; }
 </style>

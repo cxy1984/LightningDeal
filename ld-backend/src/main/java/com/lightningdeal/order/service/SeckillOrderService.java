@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.model.OrderVO;
+import java.math.BigDecimal;
 
 /**
  * 订单服务
@@ -23,7 +24,9 @@ public interface SeckillOrderService extends IService<SeckillOrder> {
     /**
      * 分页查询用户订单
      */
-    IPage<OrderVO> getUserOrders(Long userId, int page, int size, Integer status);
+    IPage<OrderVO> getUserOrders(Long userId, int page, int size, Integer status,
+                                 String startDate, String endDate,
+                                 BigDecimal minAmount, BigDecimal maxAmount);
 
     /**
      * 支付订单

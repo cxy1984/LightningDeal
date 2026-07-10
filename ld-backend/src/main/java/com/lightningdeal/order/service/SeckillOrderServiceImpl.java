@@ -69,10 +69,16 @@ public class SeckillOrderServiceImpl extends ServiceImpl<SeckillOrderMapper, Sec
     }
 
     @Override
-    public IPage<OrderVO> getUserOrders(Long userId, int page, int size, Integer status) {
+    public IPage<OrderVO> getUserOrders(Long userId, int page, int size, Integer status,
+                                        String startDate, String endDate,
+                                        BigDecimal minAmount, BigDecimal maxAmount) {
         LambdaQueryWrapper<SeckillOrder> wrapper = new LambdaQueryWrapper<SeckillOrder>()
                 .eq(SeckillOrder::getUserId, userId)
                 .eq(status != null, SeckillOrder::getStatus, status)
+                .ge(startDate != null && !startDate.isEmpty(), SeckillOrder::getCreateTime, startDate + " 00:00:00")
+                .le(endDate != null && !endDate.isEmpty(), SeckillOrder::getCreateTime, endDate + " 23:59:59")
+                .ge(minAmount != null, SeckillOrder::getTotalAmount, minAmount)
+                .le(maxAmount != null, SeckillOrder::getTotalAmount, maxAmount)
                 .orderByDesc(SeckillOrder::getCreateTime);
 
         IPage<SeckillOrder> entityPage = page(new Page<>(page, size), wrapper);

@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+
 /**
  * 订单控制器
  */
@@ -28,9 +30,13 @@ public class SeckillOrderController {
             @Parameter(description = "页码") @RequestParam(defaultValue = "1") int page,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") int size,
             @Parameter(description = "状态筛选") @RequestParam(required = false) Integer status,
+            @Parameter(description = "开始日期 yyyy-MM-dd") @RequestParam(required = false) String startDate,
+            @Parameter(description = "结束日期 yyyy-MM-dd") @RequestParam(required = false) String endDate,
+            @Parameter(description = "最低金额") @RequestParam(required = false) BigDecimal minAmount,
+            @Parameter(description = "最高金额") @RequestParam(required = false) BigDecimal maxAmount,
             Authentication authentication) {
         Long userId = (Long) authentication.getPrincipal();
-        return R.ok(orderService.getUserOrders(userId, page, size, status));
+        return R.ok(orderService.getUserOrders(userId, page, size, status, startDate, endDate, minAmount, maxAmount));
     }
 
     @Operation(summary = "订单详情")
