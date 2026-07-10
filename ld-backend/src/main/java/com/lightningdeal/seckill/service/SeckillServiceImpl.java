@@ -46,6 +46,7 @@ public class SeckillServiceImpl implements SeckillService {
     private final RedissonClient redissonClient;
     private final SeckillActivityService activityService;
     private final SeckillOrderService orderService;
+    private final com.lightningdeal.dashboard.service.DashboardService dashboardService;
     
     /** RabbitMQ 可用时注入，不可用时为 null（走同步流程） */
     private final ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider;
@@ -54,11 +55,13 @@ public class SeckillServiceImpl implements SeckillService {
                               RedissonClient redissonClient,
                               SeckillActivityService activityService,
                               SeckillOrderService orderService,
+                              com.lightningdeal.dashboard.service.DashboardService dashboardService,
                               ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider) {
         this.redisTemplate = redisTemplate;
         this.redissonClient = redissonClient;
         this.activityService = activityService;
         this.orderService = orderService;
+        this.dashboardService = dashboardService;
         this.rabbitTemplateProvider = rabbitTemplateProvider;
     }
 
@@ -123,6 +126,7 @@ public class SeckillServiceImpl implements SeckillService {
 
         if (result == null || result == 0) {
             log.info("库存不足 userId={}, activityId={}", userId, activityId);
+            try { dashboardService.recordFlash(false, activity.getGoodsName(), "用户" + userId); } catch (Exception ignored) {}
             return SeckillResult.fail("手慢啦，库存已被抢完", activityId);
         }
 
@@ -137,6 +141,7 @@ public class SeckillServiceImpl implements SeckillService {
                 rabbitTemplate.convertAndSend(SECKILL_EXCHANGE, SECKILL_ROUTING_KEY,
                         new SeckillMessage(userId, activityId, request.getQuantity()));
                 log.info("MQ 消息已发送 userId={}, activityId={}", userId, activityId);
+                try { dashboardService.recordFlash(true, activity.getGoodsName(), "用户" + userId); } catch (Exception ignored) {}
                 return SeckillResult.queuing(activityId);
             } catch (Exception e) {
                 // MQ 发送失败，回滚 Redis 库存和用户标记

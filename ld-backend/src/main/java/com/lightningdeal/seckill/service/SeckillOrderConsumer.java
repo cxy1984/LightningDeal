@@ -1,6 +1,7 @@
 package com.lightningdeal.seckill.service;
 
 import com.lightningdeal.activity.service.SeckillActivityService;
+import com.lightningdeal.dashboard.service.DashboardService;
 import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.service.SeckillOrderService;
 import com.lightningdeal.seckill.model.SeckillResult;
@@ -39,6 +40,8 @@ public class SeckillOrderConsumer {
     private final RedisTemplate<String, Object> redisTemplate;
     private final SeckillResultWebSocketHandler webSocketHandler;
 
+    private final DashboardService dashboardService;
+
     /**
      * 消费秒杀订单消息
      */
@@ -58,6 +61,8 @@ public class SeckillOrderConsumer {
                 activityService.incrRedisStock(activityId);
                 SeckillResult result = SeckillResult.fail("库存不足", activityId);
                 notifyUser(userId, activityId, result);
+                // 记录大屏数据
+                try { dashboardService.recordFlash(false, "活动" + activityId, "用户" + userId); } catch (Exception ignored) {}
                 ack(channel, deliveryTag);
                 return;
             }
@@ -75,6 +80,11 @@ public class SeckillOrderConsumer {
                         msg.getMessageProperties().setDelay(30 * 60 * 1000); // 30min
                         return msg;
                     });
+
+            // ===== 5. 记录大屏数据 =====
+            try {
+                dashboardService.recordFlash(true, order.getGoodsName(), "用户" + userId);
+            } catch (Exception ignored) {}
 
             ack(channel, deliveryTag);
 

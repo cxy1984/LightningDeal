@@ -130,6 +130,13 @@ public class RateLimitAspect {
         }
 
         log.debug("✅ 限流放行 key={}", redisKey);
+
+        // 4. 记录 QPS 到 Redis（大屏数据使用）
+        try {
+            String qpsKey = "dashboard:qps:" + (System.currentTimeMillis() / 1000);
+            stringRedisTemplate.opsForValue().increment(qpsKey);
+            stringRedisTemplate.expire(qpsKey, 120, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception ignored) {}
     }
 
     /**
