@@ -141,15 +141,24 @@ public class SeckillActivityServiceImpl extends ServiceImpl<SeckillActivityMappe
         String stockKey = STOCK_PREFIX + activityId;
         String soldKey = SOLD_PREFIX + activityId;
         String usersKey = "seckill:users:" + activityId;
-        String resultPattern = "seckill:result:" + activityId + ":*";
 
         redisTemplate.delete(stockKey);
         redisTemplate.delete(soldKey);
         redisTemplate.delete(usersKey);
-        // 删除所有该活动的结果缓存
-        Set<String> resultKeys = redisTemplate.keys(resultPattern);
-        if (resultKeys != null && !resultKeys.isEmpty()) {
-            redisTemplate.delete(resultKeys);
+        // 使用 SCAN 删除该活动的结果缓存（避免 KEYS 阻塞）
+        try {
+            redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
+                org.springframework.data.redis.core.ScanOptions options = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match("seckill:result:" + activityId + ":*").count(100).build();
+                org.springframework.data.redis.core.Cursor<byte[]> cursor = connection.scan(options);
+                while (cursor.hasNext()) {
+                    connection.del(cursor.next());
+                }
+                cursor.close();
+                return null;
+            });
+        } catch (Exception e) {
+            log.warn("SCAN 删除 result 缓存失败 activityId={}", activityId, e);
         }
         log.debug("清除活动 Redis 缓存 activityId={}", activityId);
     }

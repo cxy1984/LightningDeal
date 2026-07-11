@@ -96,16 +96,30 @@ public class ActivityStatusTask {
         redisTemplate.delete(usersKey);
         redisTemplate.delete(lockKey);
 
-        // 通配符删除：user_count 和 result
-        Set<String> userCountKeys = redisTemplate.keys(USER_COUNT_PREFIX + activityId + ":*");
-        if (userCountKeys != null && !userCountKeys.isEmpty()) {
-            redisTemplate.delete(userCountKeys);
-        }
-        Set<String> resultKeys = redisTemplate.keys(RESULT_PREFIX + activityId + ":*");
-        if (resultKeys != null && !resultKeys.isEmpty()) {
-            redisTemplate.delete(resultKeys);
-        }
+        // 使用 SCAN 替代 KEYS 通配符删除，避免阻塞
+        scanAndDelete(USER_COUNT_PREFIX + activityId + ":*");
+        scanAndDelete(RESULT_PREFIX + activityId + ":*");
 
         log.debug("已清理活动 Redis 缓存 activityId={}", activityId);
+    }
+
+    /**
+     * 使用 SCAN 模糊匹配删除 key，避免 KEYS 阻塞
+     */
+    private void scanAndDelete(String pattern) {
+        try {
+            redisTemplate.execute((org.springframework.data.redis.core.RedisCallback<Object>) connection -> {
+                org.springframework.data.redis.core.ScanOptions options = org.springframework.data.redis.core.ScanOptions.scanOptions()
+                        .match(pattern).count(100).build();
+                org.springframework.data.redis.core.Cursor<byte[]> cursor = connection.scan(options);
+                while (cursor.hasNext()) {
+                    connection.del(cursor.next());
+                }
+                cursor.close();
+                return null;
+            });
+        } catch (Exception e) {
+            log.warn("SCAN 删除失败 pattern={}", pattern, e);
+        }
     }
 }
