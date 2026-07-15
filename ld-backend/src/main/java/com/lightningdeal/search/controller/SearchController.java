@@ -12,6 +12,7 @@ import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -44,8 +45,9 @@ public class SearchController {
         return R.ok(searchService.search(keyword, PageRequest.of(page, size)));
     }
 
-    @Operation(summary = "批量同步活动数据到 ES")
+    @Operation(summary = "批量同步活动数据到 ES（需管理员）")
     @PostMapping("/sync")
+    @PreAuthorize("hasRole('ADMIN')")
     public R<String> syncAll() {
         SearchService searchService = searchServiceProvider.getIfAvailable();
         if (searchService == null) {

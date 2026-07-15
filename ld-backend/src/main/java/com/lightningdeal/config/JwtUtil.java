@@ -30,15 +30,15 @@ public class JwtUtil {
     /**
      * 生成 accessToken（短期）
      */
-    public String generateToken(Long userId, String username) {
-        return buildToken(userId, username, expiration);
+    public String generateToken(Long userId, String username, String role) {
+        return buildToken(userId, username, role, expiration);
     }
 
     /**
      * 生成 refreshToken（长期）
      */
-    public String generateRefreshToken(Long userId, String username) {
-        return buildToken(userId, username, refreshExpiration);
+    public String generateRefreshToken(Long userId, String username, String role) {
+        return buildToken(userId, username, role, refreshExpiration);
     }
 
     /**
@@ -55,6 +55,14 @@ public class JwtUtil {
     public String getUsernameFromToken(String token) {
         Claims claims = parseToken(token);
         return claims.get("username", String.class);
+    }
+
+    /**
+     * 从 Token 解析角色
+     */
+    public String getRoleFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("role", String.class);
     }
 
     /**
@@ -76,11 +84,12 @@ public class JwtUtil {
         return refreshExpiration;
     }
 
-    private String buildToken(Long userId, String username, long ttlMillis) {
+    private String buildToken(Long userId, String username, String role, long ttlMillis) {
         Date now = new Date();
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
+                .claim("role", role)
                 .issuedAt(now)
                 .expiration(new Date(now.getTime() + ttlMillis))
                 .signWith(secretKey)

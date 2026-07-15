@@ -59,8 +59,9 @@ public class AuthController {
 
         // 4. 签发新的 accessToken + refreshToken（轮换）
         String username = jwtUtil.getUsernameFromToken(refreshToken);
-        String newAccessToken = jwtUtil.generateToken(userId, username);
-        String newRefreshToken = jwtUtil.generateRefreshToken(userId, username);
+        String role = jwtUtil.getRoleFromToken(refreshToken);
+        String newAccessToken = jwtUtil.generateToken(userId, username, role);
+        String newRefreshToken = jwtUtil.generateRefreshToken(userId, username, role);
 
         log.info("Token 刷新成功 userId={}", userId);
 

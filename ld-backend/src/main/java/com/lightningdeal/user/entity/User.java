@@ -30,6 +30,9 @@ public class User extends BaseEntity {
     @Schema(description = "昵称")
     private String nickname;
 
+    @Schema(description = "角色: admin/user")
+    private String role;
+
     @Schema(description = "头像URL")
     private String avatar;
 }

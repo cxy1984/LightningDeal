@@ -19,6 +19,9 @@ public class UserVO {
     @Schema(description = "昵称")
     private String nickname;
 
+    @Schema(description = "角色: admin/user")
+    private String role;
+
     @Schema(description = "手机号")
     private String phone;
 

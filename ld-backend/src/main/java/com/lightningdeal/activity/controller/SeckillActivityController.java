@@ -7,8 +7,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
+import lombok.RequiredArgsConstructor;import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -38,35 +37,39 @@ public class SeckillActivityController {
         return R.ok(activityService.getActivityDetail(id));
     }
 
-    @Operation(summary = "创建活动（需登录）")
+    @Operation(summary = "创建活动（需管理员）")
     @PostMapping("/create")
-    public R<ActivityVO> create(@RequestBody com.lightningdeal.activity.entity.SeckillActivity activity,
-                                Authentication authentication) {
+    @PreAuthorize("hasRole('ADMIN')")
+    public R<ActivityVO> create(@RequestBody com.lightningdeal.activity.entity.SeckillActivity activity) {
         return R.ok(activityService.createActivity(activity));
     }
 
-    @Operation(summary = "更新活动（需登录）")
+    @Operation(summary = "更新活动（需管理员）")
     @PutMapping("/update")
+    @PreAuthorize("hasRole('ADMIN')")
     public R<ActivityVO> update(@RequestBody com.lightningdeal.activity.entity.SeckillActivity activity) {
         return R.ok(activityService.updateActivity(activity));
     }
 
-    @Operation(summary = "预热库存到 Redis")
+    @Operation(summary = "预热库存到 Redis（需管理员）")
     @PostMapping("/preheat/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public R<String> preheat(@PathVariable Long id) {
         activityService.preheatStock(id);
         return R.ok("库存预热成功");
     }
 
-    @Operation(summary = "删除活动（逻辑删除）")
+    @Operation(summary = "删除活动（需管理员）")
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public R<String> delete(@PathVariable Long id) {
         activityService.deleteActivity(id);
         return R.ok("删除成功");
     }
 
-    @Operation(summary = "更新活动状态 0-草稿 1-上架 2-进行中 3-已结束")
+    @Operation(summary = "更新活动状态（需管理员）")
     @PutMapping("/status/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public R<ActivityVO> updateStatus(@PathVariable Long id, @RequestParam Integer status) {
         return R.ok(activityService.updateStatus(id, status));
     }

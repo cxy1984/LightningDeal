@@ -66,8 +66,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BizException(401, "用户名或密码错误");
         }
 
-        String accessToken = jwtUtil.generateToken(user.getId(), user.getUsername());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getUsername());
+        String accessToken = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getUsername(), user.getRole());
         log.info("用户登录成功 userId={}, username={}", user.getId(), user.getUsername());
 
         return LoginResponse.builder()
@@ -75,6 +75,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .refreshToken(refreshToken)
                 .userId(user.getId())
                 .username(user.getUsername())
+                .role(user.getRole())
                 .build();
     }
 
