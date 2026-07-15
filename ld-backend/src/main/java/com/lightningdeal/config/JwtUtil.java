@@ -17,25 +17,28 @@ public class JwtUtil {
 
     private final SecretKey secretKey;
     private final long expiration;
+    private final long refreshExpiration;
 
     public JwtUtil(@Value("${jwt.secret}") String secret,
-                   @Value("${jwt.expiration}") long expiration) {
+                   @Value("${jwt.expiration}") long expiration,
+                   @Value("${jwt.refresh-expiration}") long refreshExpiration) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.expiration = expiration;
+        this.refreshExpiration = refreshExpiration;
     }
 
     /**
-     * 生成 Token
+     * 生成 accessToken（短期）
      */
     public String generateToken(Long userId, String username) {
-        Date now = new Date();
-        return Jwts.builder()
-                .subject(userId.toString())
-                .claim("username", username)
-                .issuedAt(now)
-                .expiration(new Date(now.getTime() + expiration))
-                .signWith(secretKey)
-                .compact();
+        return buildToken(userId, username, expiration);
+    }
+
+    /**
+     * 生成 refreshToken（长期）
+     */
+    public String generateRefreshToken(Long userId, String username) {
+        return buildToken(userId, username, refreshExpiration);
     }
 
     /**
@@ -66,11 +69,43 @@ public class JwtUtil {
         }
     }
 
+    /**
+     * 获取 refreshToken 的过期时间戳（毫秒，用于 Redis TTL）
+     */
+    public long getRefreshExpiration() {
+        return refreshExpiration;
+    }
+
+    private String buildToken(Long userId, String username, long ttlMillis) {
+        Date now = new Date();
+        return Jwts.builder()
+                .subject(userId.toString())
+                .claim("username", username)
+                .issuedAt(now)
+                .expiration(new Date(now.getTime() + ttlMillis))
+                .signWith(secretKey)
+                .compact();
+    }
+
     private Claims parseToken(String token) {
         return Jwts.parser()
                 .verifyWith(secretKey)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /**
+     * 获取 token 的过期时间
+     */
+    public Date getExpirationFromToken(String token) {
+        return parseToken(token).getExpiration();
+    }
+
+    /**
+     * 获取 token 的签发时间
+     */
+    public Date getIssuedAtFromToken(String token) {
+        return parseToken(token).getIssuedAt();
     }
 }

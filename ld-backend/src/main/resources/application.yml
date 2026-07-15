@@ -84,7 +84,8 @@ mybatis-plus:
 # ===== JWT =====
 jwt:
   secret: LightningDealSecretKey2024!@#$%^&*()LightningDealSecretKey
-  expiration: 86400000  # 24h
+  expiration: 604800000  # 7天（accessToken）
+  refresh-expiration: 2592000000  # 30天（refreshToken）
 
 # ===== MinIO =====
 minio:

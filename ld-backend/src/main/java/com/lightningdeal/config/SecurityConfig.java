@@ -63,7 +63,7 @@ public class SecurityConfig {
                 // WebSocket 放行
                 .antMatchers("/ws/**").permitAll()
                 // 用户注册登录放行
-                .antMatchers("/user/register", "/user/login").permitAll()
+                .antMatchers("/user/register", "/user/login", "/auth/**").permitAll()
                 // 活动列表、搜索等公开接口
                 .antMatchers("/activity/list", "/activity/detail/**", "/search/**").permitAll()
                 // 大屏数据接口

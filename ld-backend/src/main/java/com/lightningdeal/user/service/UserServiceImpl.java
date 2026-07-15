@@ -2,10 +2,12 @@ package com.lightningdeal.user.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.lightningdeal.common.exception.BizException;
+import com.lightningdeal.common.service.TokenBlacklistService;
 import com.lightningdeal.config.JwtUtil;
 import com.lightningdeal.user.entity.User;
 import com.lightningdeal.user.mapper.UserMapper;
 import com.lightningdeal.user.model.LoginRequest;
+import com.lightningdeal.user.model.LoginResponse;
 import com.lightningdeal.user.model.RegisterRequest;
 import com.lightningdeal.user.model.UpdatePasswordRequest;
 import com.lightningdeal.user.model.UpdateProfileRequest;
@@ -26,6 +28,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final TokenBlacklistService blacklistService;
 
     @Override
     public UserVO register(RegisterRequest request) {
@@ -53,7 +56,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public String login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request) {
         User user = lambdaQuery().eq(User::getUsername, request.getUsername()).one();
         if (user == null) {
             throw new BizException(401, "用户名或密码错误");
@@ -63,9 +66,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             throw new BizException(401, "用户名或密码错误");
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String accessToken = jwtUtil.generateToken(user.getId(), user.getUsername());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getId(), user.getUsername());
         log.info("用户登录成功 userId={}, username={}", user.getId(), user.getUsername());
-        return token;
+
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .userId(user.getId())
+                .username(user.getUsername())
+                .build();
     }
 
     @Override
@@ -109,7 +119,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         updateById(user);
-        log.info("密码修改成功 userId={}", userId);
+        // 修改密码后使该用户所有 refreshToken 失效
+        blacklistService.invalidateUserTokens(userId, 30 * 24 * 3600);
+        log.info("密码修改成功 userId={}，旧 refreshToken 已失效", userId);
     }
 
     private UserVO toVO(User user) {

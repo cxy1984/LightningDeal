@@ -6,19 +6,32 @@ const request = axios.create({
   timeout: 15000
 })
 
-// 请求拦截器 - 添加 Token
+// 是否正在刷新 token 的标记
+let isRefreshing = false
+let refreshSubscribers = []
+
+function onRefreshed(newToken) {
+  refreshSubscribers.forEach(cb => cb(newToken))
+  refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb) {
+  refreshSubscribers.push(cb)
+}
+
+// 请求拦截器 - 添加 accessToken
 request.interceptors.request.use(
   config => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+    const accessToken = localStorage.getItem('accessToken')
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`
     }
     return config
   },
   error => Promise.reject(error)
 )
 
-// 响应拦截器 - 统一处理错误
+// 响应拦截器 - 统一处理错误 + 自动刷新 token
 request.interceptors.response.use(
   response => {
     const res = response.data
@@ -28,24 +41,65 @@ request.interceptors.response.use(
     }
     return res
   },
-  error => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      window.location.href = '/login'
-      ElMessage.error('登录已过期，请重新登录')
-    } else if (error.code === 'ECONNABORTED') {
+  async error => {
+    const { config, response } = error
+    // 401 且非刷新接口本身 → 尝试刷新 token
+    if (response?.status === 401 && !config?.url?.includes('/auth/refresh') && !config?.url?.includes('/user/login')) {
+      const refreshToken = localStorage.getItem('refreshToken')
+      if (!refreshToken) {
+        // 没有 refreshToken，跳登录
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('refreshToken')
+        window.location.href = '/login'
+        ElMessage.error('登录已过期，请重新登录')
+        return Promise.reject(error)
+      }
+
+      if (!isRefreshing) {
+        isRefreshing = true
+        try {
+          const res = await axios.post('/api/auth/refresh', { refreshToken })
+          const { accessToken: newAccess, refreshToken: newRefresh } = res.data.data
+          localStorage.setItem('accessToken', newAccess)
+          localStorage.setItem('refreshToken', newRefresh)
+          config.headers.Authorization = `Bearer ${newAccess}`
+          isRefreshing = false
+          onRefreshed(newAccess)
+          // 重试原请求
+          return request(config)
+        } catch (refreshError) {
+          isRefreshing = false
+          refreshSubscribers = []
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          window.location.href = '/login'
+          ElMessage.error('登录已过期，请重新登录')
+          return Promise.reject(refreshError)
+        }
+      } else {
+        // 正在刷新，排队等待
+        return new Promise(resolve => {
+          addRefreshSubscriber(newToken => {
+            config.headers.Authorization = `Bearer ${newToken}`
+            resolve(request(config))
+          })
+        })
+      }
+    }
+
+    if (error.code === 'ECONNABORTED') {
       ElMessage.error('请求超时，网络似乎不太好，请重试')
-    } else if (error.response?.status >= 500) {
+    } else if (response?.status >= 500) {
       ElMessage.error('服务器繁忙，请稍后再试')
     } else if (error.message === 'Network Error') {
       ElMessage.error('网络连接失败，请检查网络')
-    } else if (error.response?.status === 429) {
-      // 限流错误在秒杀页面已有弹窗处理，全局只提示，不覆盖
-      if (!error.config?.url?.includes('/seckill/')) {
+    } else if (response?.status === 429) {
+      if (!config?.url?.includes('/seckill/')) {
         ElMessage.warning('操作太频繁，请稍后再试')
       }
-    } else {
-      const msg = error.response?.data?.msg || error.message || '网络错误'
+    } else if (response?.status !== 401) {
+      // 非 401 的错误才提示（401 已经处理）
+      const msg = response?.data?.msg || error.message || '网络错误'
       ElMessage.error(msg)
     }
     return Promise.reject(error)
@@ -58,6 +112,7 @@ export const api = {
   login: data => request.post('/user/login', data),
   register: data => request.post('/user/register', data),
   getUserInfo: () => request.get('/user/info'),
+  refreshToken: data => request.post('/auth/refresh', data),
 
   // 活动
   getActivityList: params => request.get('/activity/list', { params }),

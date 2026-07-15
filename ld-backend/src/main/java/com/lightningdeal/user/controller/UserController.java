@@ -1,6 +1,7 @@
 package com.lightningdeal.user.controller;
 
 import com.lightningdeal.common.response.R;
+import com.lightningdeal.user.model.LoginResponse;
 import com.lightningdeal.user.model.LoginRequest;
 import com.lightningdeal.user.model.RegisterRequest;
 import com.lightningdeal.user.model.UpdatePasswordRequest;
@@ -36,9 +37,8 @@ public class UserController {
 
     @Operation(summary = "用户登录")
     @PostMapping("/login")
-    public R<String> login(@Valid @RequestBody LoginRequest request) {
-        String token = userService.login(request);
-        return R.ok("登录成功", token);
+    public R<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return R.ok(userService.login(request));
     }
 
     @Operation(summary = "获取当前用户信息")
