@@ -42,12 +42,18 @@
 |:-----|:-----|
 | ⚡ **高并发秒杀** | Redis Lua 原子扣减 + RabbitMQ 异步削峰 + 数据库乐观锁兜底 |
 | 🔒 **防超卖设计** | Redisson 分布式锁 + Redis Set 防重复 + 乐观锁三保险 |
-| 📡 **实时推送** | WebSocket 推送秒杀结果 + ECharts 大屏实时 QPS 曲线 |
+| 🛡️ **防缓存穿透** | Redis 布隆过滤器拦截非法 activityId，零 MySQL 查询 |
+| 🔐 **JWT 双 Token** | accessToken + refreshToken + Redis 黑名单，支持主动失效 |
+| 📡 **实时推送** | WebSocket 推送秒杀结果 + 指数退避断线重连 |
 | 🔍 **全文搜索** | Elasticsearch 7.x + ik 分词，支持商品名称/描述高亮搜索 |
 | 📦 **对象存储** | MinIO 存储商品图片，S3 兼容 API，预签名 URL |
 | 📊 **数据大屏** | 实时 QPS 曲线、抢购流水、商品排行榜、系统状态监控 |
 | 🐳 **一键部署** | Docker Compose 编排 MySQL/Redis/RabbitMQ/ES/MinIO |
 | 📖 **接口文档** | SpringDoc OpenAPI (Swagger 3)，自动生成，在线调试 |
+| 📋 **订单系统** | 待支付/已支付/已取消/已退款完整状态机，30 分钟超时自动取消 |
+| 👤 **用户中心** | 注册/登录/修改资料/修改密码 |
+| ⚙️ **管理后台** | 活动 CRUD、上架/下架、状态自动流转、图片上传 |
+| 🧪 **质量保障** | 82 个单元测试覆盖秒杀核心 + 订单 + 限流 + 布隆过滤器 |
 
 ---
 
@@ -239,16 +245,21 @@ LightningDeal/
 │   │   │   ├── MinIOConfig.java
 │   │   │   └── MyBatisPlusConfig.java
 │   │   ├── common/                      # 统一响应/异常/实体基类
-│   │   ├── user/                        # 用户模块 (JWT 认证)
-│   │   ├── activity/                    # 活动管理 (CRUD + 库存预热)
+│   │   │   ├── service/                # TokenBlacklistService + BloomFilterService
+│   │   │   ├── aspect/                 # RateLimitAspect 限流切面
+│   │   │   ├── controller/             # AuthController 刷新/登出
+│   │   │   └── annotation/             # @RateLimit 注解
+│   │   ├── user/                        # 用户模块 (JWT 双 token 认证)
+│   │   ├── activity/                    # 活动管理 (CRUD + 布隆过滤器 + 库存预热)
 │   │   ├── seckill/                     # ★ 秒杀核心
-│   │   │   ├── SeckillService.java      # Redis+Lua+MQ 流程编排
-│   │   │   ├── SeckillOrderConsumer.java# MQ 消费者 (异步下单)
+│   │   │   ├── SeckillService.java      # Redis+Lua+MQ 流程编排 + 布隆过滤器
+│   │   │   ├── SeckillOrderConsumer.java# MQ 消费者 (异步下单 + 超时取消)
 │   │   │   └── SeckillMessage.java      # 消息体
-│   │   ├── order/                       # 订单模块
-│   │   ├── search/                      # ES 搜索 (ik 分词)
+│   │   ├── order/                       # 订单模块 (支付/取消/退款完整状态机)
+│   │   ├── search/                      # ES 搜索 (ik 分词 + MQ 异步同步)
 │   │   ├── dashboard/                   # 大屏数据接口
 │   │   ├── file/                        # MinIO 文件上传
+│   │   ├── task/                        # ActivityStatusTask 定时任务
 │   │   └── websocket/                   # WebSocket 处理器
 │   └── src/main/resources/
 │       └── application.yml
@@ -336,13 +347,15 @@ LightningDeal/
 
 | 技术点 | 面试能聊什么 |
 |:-------|:------------|
-| **Redis** | 库存预热、DECR 原子扣减、Lua 脚本保证事务性、SET NX 分布式锁、滑动窗口限流、库存与数据库最终一致性 |
-| **RabbitMQ** | 异步削峰、Confirm 机制确保消息可达、手动 Ack 防止丢失、死信队列重试、延迟队列取消超时订单、幂等性设计 |
+| **Redis** | 库存预热、DECR 原子扣减、Lua 脚本保证事务性、SET NX 分布式锁、滑动窗口限流、库存与数据库最终一致性、**RBloomFilter 布隆过滤器防穿透** |
+| **RabbitMQ** | 异步削峰、Confirm 机制确保消息可达、手动 Ack 防止丢失、死信队列重试、**延迟队列取消超时订单**、幂等性设计 |
 | **Elasticsearch** | ik 分词器配置、多字段匹配、高亮查询、索引 mapping 设计、ES 与 MySQL 数据同步策略 |
 | **MinIO** | 对象存储 vs 本地文件系统 vs 云 OSS、S3 兼容 API、预签名 URL 实现安全访问 |
-| **WebSocket** | 实时推送 vs 轮询 vs SSE、连接管理、心跳检测、断线重连、集群广播方案 |
+| **WebSocket** | 实时推送 vs 轮询 vs SSE、连接管理、**指数退避断线重连**、心跳检测、集群广播方案 |
+| **JWT 安全** | **双 token 机制（accessToken + refreshToken）**、**Redis 黑名单主动失效**、无状态认证 vs 有状态 session |
 | **高并发** | JMeter 压测方法论、QPS/TPS 指标解读、瓶颈分析、缓存/异步/限流三板斧 |
 | **分布式** | CAP 理论在秒杀场景的体现（AP vs CP）、最终一致性设计、分布式锁的三种实现对比 |
+| **单元测试** | **Mockito + JUnit 5 分层测试策略**、核心秒杀流程 10+ 分支全覆盖 |
 
 ### 🎯 你在简历中如何描述这个项目
 
@@ -355,6 +368,11 @@ LightningDeal/
   · 通过分布式锁和乐观锁双重机制确保不超卖
   · 使用 WebSocket 实现秒杀结果实时推送 + ECharts 大屏 QPS 监控
   · 集成 Elasticsearch 实现 ik 分词全文搜索
+  · 采用 Redis 布隆过滤器防缓存穿透拦截非法请求
+  · 设计 accessToken + refreshToken 双 token 认证体系
+  · 编写 82 个单元测试覆盖秒杀核心全部业务分支
+  · 采用 RabbitMQ 延迟队列实现 30 分钟超时订单自动取消
+  · 自研 Python 多用户并发压测工具，500 并发限流率 97.4%
   · 采用 Docker Compose 编排 6 个服务一键部署
 - 项目地址：https://github.com/你的用户名/LightningDeal
 - 在线演示：http://your-server-ip:5173
@@ -380,26 +398,48 @@ LightningDeal/
 ## 📚 开发路线
 
 ### 第一阶段：基础功能
-- ✅ 用户注册登录（JWT 无状态认证）
-- ✅ 秒杀活动 CRUD
-- ✅ 活动列表 + 详情页（倒计时）
+- ✅ 用户注册登录（JWT 无状态认证 + Refresh Token 双 token）
+- ✅ 秒杀活动 CRUD（含管理后台）
+- ✅ 活动列表 + 详情页（倒计时动画）
+- ✅ 活动状态自动流转（定时任务 + ES 同步）
+- ✅ 活动管理 UI 优化（搜索/筛选/图片预览/校验/已开始只读）
 
 ### 第二阶段：秒杀核心
 - ✅ Redis 库存预热 + Lua 原子扣减
 - ✅ Redisson 分布式锁防超卖
-- ✅ RabbitMQ 异步下单削峰
-- ✅ 抢购结果 WebSocket 推送
+- ✅ RabbitMQ 异步下单削峰（手动 Ack + 死信重试 + 延迟队列）
+- ✅ 抢购结果 WebSocket 推送（内联卡片 + 弹窗）
+- ✅ WebSocket 断线重连（指数退避，最多 10 次）
+- ✅ 全局限流（Redis 令牌桶 @RateLimit 注解）
+- ✅ 限购（Redis Lua 原子计数 + DB 兜底）
+- ✅ 双层限购拦截（Redis 预检 + DB 兜底）
+- ✅ 订单超时自动取消（30 分钟延迟队列）
+- ✅ 订单取消/退款完整资源回退（Redis 库存 + MySQL sold_stock + 用户标记）
+- ✅ 布隆过滤器防缓存穿透
 
 ### 第三阶段：扩展功能
-- ✅ ES 全文搜索（ik 分词 + 高亮）
-- ✅ MinIO 商品图片上传
-- ✅ 实时数据大屏（ECharts + WebSocket）
+- ✅ ES 全文搜索（ik 分词 + 高亮查询）
+- ✅ ES 自动同步（MQ 异步，事务提交后发送，3 次重试 + 死信队列）
+- ✅ MinIO 商品图片上传（预签名 URL）
+- ✅ 实时数据大屏（ECharts + WebSocket，QPS 曲线/排行榜/流水）
+- ✅ 订单列表筛选器（时间+金额+状态组合）
+- ✅ 支付模拟页面（微信/支付宝/银行卡/余额 4 种方式）
+- ✅ 用户中心（修改资料/修改密码）
+- ✅ 退款功能（已支付 → 已退款，资源回退）
+- ✅ API 权限细分（@PreAuthorize role=ADMIN）
 
-### 第四阶段：收尾优化 （TODO）
+### 第四阶段：质量保障
+- ✅ 自研 Python 多用户并发压测工具（300/500 并发验证通过）
+- ✅ 全局限流改造（按 activityId 维度，500 并发限流率 97.4%）
+- ✅ JWT 安全增强（Redis 黑名单 + 双 token 轮换）
+- ✅ 参数调优（HikariCP/Redis 连接池/RabbitMQ prefetch）
+- ✅ 单元测试 82 个（秒杀核心/订单/限流/布隆过滤器全覆盖）
+
+### 待做（TODO）
 - [ ] JMeter 压测 + 参数调优
-- [ ] 接口限流（Sentinel / 令牌桶）
-- [ ] 布隆过滤器防缓存穿透
-- [ ] 页面动画优化
+- [ ] 日志链路追踪（Sleuth + Zipkin）
+- [ ] CI/CD 配置（GitHub Actions）
+- [ ] 监控告警
 - [ ] 部署文档 + 博客总结
 
 ---
