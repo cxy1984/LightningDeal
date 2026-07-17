@@ -41,7 +41,12 @@
       <el-button @click="resetFilters">重置</el-button>
     </div>
 
-    <el-table :data="list" style="width:100%" v-loading="loading" stripe>
+    <!-- 骨架屏（首次加载时） -->
+    <div v-if="loading && !list.length" class="skeleton-table">
+      <el-skeleton :rows="5" animated style="width:100%;padding:20px" />
+    </div>
+
+    <el-table :data="list" style="width:100%" v-loading="loading" stripe v-else>
       <el-table-column label="订单编号" prop="orderNo" width="200" />
       <el-table-column label="商品" prop="goodsName" min-width="150" />
       <el-table-column label="金额" width="120">

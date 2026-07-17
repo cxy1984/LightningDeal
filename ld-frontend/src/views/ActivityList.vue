@@ -6,8 +6,27 @@
       <el-button type="danger" @click="handleSearch">搜索</el-button>
     </div>
 
+    <!-- 骨架屏：加载中 -->
+    <el-row :gutter="20" v-if="loading">
+      <el-col v-for="n in 8" :key="n" :xs="24" :sm="12" :md="8" :lg="6" class="card-col">
+        <el-card :body-style="{ padding: '0' }" shadow="hover">
+          <el-skeleton style="width: 100%" animated>
+            <template #template>
+              <el-skeleton-item variant="image" style="width:100%;height:200px" />
+              <div style="padding: 16px">
+                <el-skeleton-item variant="text" style="width:70%;margin-bottom:8px" />
+                <el-skeleton-item variant="text" style="width:40%;margin-bottom:12px" />
+                <el-skeleton-item variant="text" style="width:100%;height:8px;margin-bottom:8px" />
+                <el-skeleton-item variant="text" style="width:60%;height:14px" />
+              </div>
+            </template>
+          </el-skeleton>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <!-- 活动卡片 -->
-    <el-row :gutter="20">
+    <el-row :gutter="20" v-else>
       <el-col v-for="item in list" :key="item.id" :xs="24" :sm="12" :md="8" :lg="6" class="card-col">
         <el-card class="activity-card" :body-style="{ padding: '0' }" shadow="hover" @click="$router.push(`/activity/detail/${item.id}`)">
           <div class="card-image">
@@ -65,10 +84,12 @@ const page = ref(1)
 const size = ref(12)
 const total = ref(0)
 const keyword = ref('')
+const loading = ref(false)
 
 onMounted(() => fetchList())
 
 async function fetchList() {
+  loading.value = true
   try {
     const params = { page: page.value, size: size.value }
     if (keyword.value) {
@@ -82,6 +103,8 @@ async function fetchList() {
     }
   } catch (e) {
     // ignore
+  } finally {
+    loading.value = false
   }
 }
 

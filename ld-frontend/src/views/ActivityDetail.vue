@@ -103,8 +103,29 @@
     </el-card>
   </div>
 
-  <div v-else class="loading">
-    <el-skeleton :rows="10" animated />
+  <div v-else class="skeleton-wrapper">
+    <el-skeleton style="width: 100%" animated>
+      <template #template>
+        <el-row :gutter="32">
+          <el-col :xs="24" :md="10">
+            <el-skeleton-item variant="image" style="width:100%;height:400px;border-radius:12px" />
+          </el-col>
+          <el-col :xs="24" :md="14">
+            <el-skeleton-item variant="h1" style="width:60%;margin-bottom:16px" />
+            <el-skeleton-item variant="text" style="width:100%;margin-bottom:8px" />
+            <el-skeleton-item variant="text" style="width:80%;margin-bottom:24px" />
+            <div style="display:flex;gap:16px;margin-bottom:24px">
+              <el-skeleton-item variant="text" style="width:100px;height:40px" />
+              <el-skeleton-item variant="text" style="width:80px;height:40px" />
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px">
+              <el-skeleton-item variant="text" v-for="n in 4" :key="n" style="height:32px" />
+            </div>
+            <el-skeleton-item variant="button" style="width:200px;height:48px;margin-top:16px" />
+          </el-col>
+        </el-row>
+      </template>
+    </el-skeleton>
   </div>
 </template>
 
@@ -341,7 +362,7 @@ function formatTime(ts) {
 
 <style scoped>
 .detail-page { max-width: 1200px; margin: 0 auto; }
-.loading { max-width: 1200px; margin: 0 auto; padding: 40px; }
+.skeleton-wrapper { max-width: 1200px; margin: 0 auto; padding: 40px; }
 .detail-image { margin-bottom: 20px; }
 .img-ph { height: 400px; display: flex; align-items: center; justify-content: center; background: #f0f0f0; font-size: 48px; }
 .detail-title { font-size: 28px; margin-bottom: 8px; }
