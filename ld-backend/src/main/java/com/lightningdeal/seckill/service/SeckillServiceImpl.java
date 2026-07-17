@@ -3,6 +3,7 @@ package com.lightningdeal.seckill.service;
 import com.lightningdeal.activity.entity.SeckillActivity;
 import com.lightningdeal.activity.service.SeckillActivityService;
 import com.lightningdeal.common.exception.BizException;
+import com.lightningdeal.common.service.BloomFilterService;
 import com.lightningdeal.order.entity.SeckillOrder;
 import com.lightningdeal.order.service.SeckillOrderService;
 import com.lightningdeal.seckill.model.SeckillRequest;
@@ -47,6 +48,7 @@ public class SeckillServiceImpl implements SeckillService {
     private final SeckillActivityService activityService;
     private final SeckillOrderService orderService;
     private final com.lightningdeal.dashboard.service.DashboardService dashboardService;
+    private final BloomFilterService bloomFilterService;
     
     /** RabbitMQ 可用时注入，不可用时为 null（走同步流程） */
     private final ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider;
@@ -56,18 +58,26 @@ public class SeckillServiceImpl implements SeckillService {
                               SeckillActivityService activityService,
                               SeckillOrderService orderService,
                               com.lightningdeal.dashboard.service.DashboardService dashboardService,
+                              BloomFilterService bloomFilterService,
                               ObjectProvider<org.springframework.amqp.rabbit.core.RabbitTemplate> rabbitTemplateProvider) {
         this.redisTemplate = redisTemplate;
         this.redissonClient = redissonClient;
         this.activityService = activityService;
         this.orderService = orderService;
         this.dashboardService = dashboardService;
+        this.bloomFilterService = bloomFilterService;
         this.rabbitTemplateProvider = rabbitTemplateProvider;
     }
 
     @Override
     public SeckillResult executeSeckill(Long userId, SeckillRequest request) {
         Long activityId = request.getActivityId();
+
+        // ===== 0. 布隆过滤器拦截非法 activityId（防缓存穿透） =====
+        if (!bloomFilterService.mightContain(activityId)) {
+            log.warn("布隆过滤器拦截非法活动ID userId={}, activityId={}", userId, activityId);
+            throw new BizException(400, "活动不存在");
+        }
 
         // ===== 1. 参数校验 =====
         SeckillActivity activity = activityService.getById(activityId);
