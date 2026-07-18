@@ -108,6 +108,8 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
     ports:
       - "8081:8080"   # 宿主机 8081 → 容器 8080（避开 Jenkins 的 8080）
     depends_on:
