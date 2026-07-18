@@ -410,7 +410,7 @@ LightningDeal/
 - ✅ RabbitMQ 异步下单削峰（手动 Ack + 死信重试 + 延迟队列）
 - ✅ 抢购结果 WebSocket 推送（内联卡片 + 弹窗）
 - ✅ WebSocket 断线重连（指数退避，最多 10 次）
-- ✅ 全局限流（Redis 令牌桶 @RateLimit 注解）
+- ✅ 全局限流（Redis 令牌桶 @RateLimit 注解，通过 @Repeatable 支持双层限流）
 - ✅ 限购（Redis Lua 原子计数 + DB 兜底）
 - ✅ 双层限购拦截（Redis 预检 + DB 兜底）
 - ✅ 订单超时自动取消（30 分钟延迟队列）
@@ -430,7 +430,7 @@ LightningDeal/
 
 ### 第四阶段：质量保障
 - ✅ 自研 Python 多用户并发压测工具（300/500 并发验证通过）
-- ✅ 全局限流改造（按 activityId 维度，500 并发限流率 97.4%）
+- ✅ 全局限流改造（按 activityId 维度，500 并发限流率 97.4%；后升级为双层限流：全局 + 用户级）
 - ✅ JWT 安全增强（Redis 黑名单 + 双 token 轮换）
 - ✅ 参数调优（HikariCP/Redis 连接池/RabbitMQ prefetch）
 - ✅ 单元测试 82 个（秒杀核心/订单/限流/布隆过滤器全覆盖）

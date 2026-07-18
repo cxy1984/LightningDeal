@@ -1,0 +1,120 @@
+# ============================================================
+# ⚡ LightningDeal —— Linux 服务器部署版
+# 适用环境：CentOS 7，已有 MySQL（端口65533）+ Jenkins（端口8080）
+# 用法：docker compose -f docker-compose-linux.yml up -d --build
+# ============================================================
+
+services:
+  # ===== Redis 7 =====
+  redis:
+    image: redis:7-alpine
+    container_name: ld-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - ld-network
+
+  # ===== RabbitMQ =====
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: ld-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - ld-network
+
+  # ===== Elasticsearch 7.17 =====
+  elasticsearch:
+    image: elasticsearch:7.17.22
+    container_name: ld-es
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - xpack.security.enabled=false
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - ld-network
+
+  # ===== MinIO 对象存储 =====
+  minio:
+    image: minio/minio:latest
+    container_name: ld-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    networks:
+      - ld-network
+
+  # ===== LightningDeal 后端 =====
+  # ⚠️ 不包含 MySQL 容器，直接连宿主机现有 MySQL（端口 65533）
+  # ⚠️ 后端容器映射 8081 端口（宿主机 8080 已被 Jenkins 占用）
+  backend:
+    build:
+      context: ./ld-backend
+      dockerfile: Dockerfile
+    container_name: ld-backend
+    restart: unless-stopped
+    environment:
+      # 连宿主机 MySQL，不走容器内 mysql:3306
+      SPRING_DATASOURCE_URL: "jdbc:mysql://host.docker.internal:65533/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 761761
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      MINIO_ENDPOINT: http://minio:9000
+    ports:
+      - "8081:8080"   # 宿主机 8081 → 容器 8080（避开 Jenkins 的 8080）
+    depends_on:
+      - redis
+      - rabbitmq
+      - elasticsearch
+      - minio
+    networks:
+      - ld-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Linux 版 Docker 需此配置才能访问宿主机
+
+  # ===== LightningDeal 前端（Nginx 静态托管 + 反代后端）=====
+  frontend:
+    build:
+      context: ./ld-frontend
+      dockerfile: Dockerfile
+    container_name: ld-frontend
+    restart: unless-stopped
+    ports:
+      - "8090:80"   # 唯一对外端口
+    depends_on:
+      - backend
+    networks:
+      - ld-network
+
+volumes:
+  redis-data:
+  rabbitmq-data:
+  es-data:
+  minio-data:
+
+networks:
+  ld-network:
+    driver: bridge
