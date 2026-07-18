@@ -127,6 +127,7 @@ services:
       dockerfile: Dockerfile
     container_name: ld-frontend
     restart: unless-stopped
+    privileged: true  # 解决 CentOS 7 SELinux 限制容器内文件写入权限
     ports:
       - "8090:80"   # 唯一对外端口
     depends_on:
