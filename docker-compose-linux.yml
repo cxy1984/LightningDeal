@@ -1,11 +1,35 @@
 # ============================================================
 # ⚡ LightningDeal —— Linux 服务器部署版
-# 适用环境：CentOS 7，已有 MySQL（端口65533）+ Jenkins（端口8080）
+# 适用环境：CentOS 7，已有 MySQL 从库（只读）+ Jenkins（8080）
 # 内网IP：130.133.5.8
+# 说明：额外跑一个 MySQL 容器（端口 3307），不碰宿主机从库
 # 用法：docker compose -f docker-compose-linux.yml up -d --build
 # ============================================================
 
 services:
+  # ===== MySQL 5.7（独立容器，不与宿主机从库冲突）=====
+  mysql:
+    image: mysql:5.7
+    container_name: ld-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 761761
+      MYSQL_DATABASE: lightning_deal
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    ports:
+      - "127.0.0.1:3307:3306"   # 宿主机 3307 → 容器 3306，避免与宿主机 MySQL 冲突
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./ld-backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ld-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # ===== Redis 7 =====
   redis:
     image: redis:7-alpine
@@ -66,7 +90,7 @@ services:
       - ld-network
 
   # ===== LightningDeal 后端 =====
-  # ⚠️ 不包含 MySQL，直接连宿主机 MySQL（130.133.5.8:65533）
+  # ⚠️ 连容器内 MySQL（mysql:3306），不走宿主机从库
   # ⚠️ 后端映射 8081 端口（宿主机 8080 已被 Jenkins 占用）
   backend:
     build:
@@ -75,8 +99,8 @@ services:
     container_name: ld-backend
     restart: unless-stopped
     environment:
-      # 连宿主机 MySQL（内网 IP）
-      SPRING_DATASOURCE_URL: "jdbc:mysql://130.133.5.8:65533/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
+      # 连容器内的 MySQL（同在 ld-network）
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: 761761
       SPRING_REDIS_HOST: redis
@@ -85,12 +109,12 @@ services:
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       MINIO_ENDPOINT: http://minio:9000
     ports:
-      - "8081:8080"   # 宿主机 8081 → 容器 8080
+      - "8081:8080"   # 宿主机 8081 → 容器 8080（避开 Jenkins 的 8080）
     depends_on:
-      - redis
-      - rabbitmq
-      - elasticsearch
-      - minio
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
     networks:
       - ld-network
 
@@ -109,6 +133,7 @@ services:
       - ld-network
 
 volumes:
+  mysql-data:
   redis-data:
   rabbitmq-data:
   es-data:
