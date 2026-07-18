@@ -13,5 +13,7 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 创建 nginx pid 目录并赋予写入权限，解决容器内权限问题
+RUN mkdir -p /run/nginx && chmod 777 /run/nginx
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
