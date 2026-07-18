@@ -81,8 +81,8 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     needs: [backend-build, frontend-build]
-    # 仅在推送 main 分支时执行（PR 时不构建镜像）
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # 暂时跳过，服务器本地构建，无需 Docker Hub
+    if: false  # 仅在推送 main 分支时执行（PR 时不构建镜像）
 
     steps:
       - name: 检出代码
