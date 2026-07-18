@@ -1,6 +1,7 @@
 # ============================================================
 # ⚡ LightningDeal —— Linux 服务器部署版
 # 适用环境：CentOS 7，已有 MySQL（端口65533）+ Jenkins（端口8080）
+# 内网IP：130.133.5.8
 # 用法：docker compose -f docker-compose-linux.yml up -d --build
 # ============================================================
 
@@ -65,8 +66,8 @@ services:
       - ld-network
 
   # ===== LightningDeal 后端 =====
-  # ⚠️ 不包含 MySQL 容器，直接连宿主机现有 MySQL（端口 65533）
-  # ⚠️ 后端容器映射 8081 端口（宿主机 8080 已被 Jenkins 占用）
+  # ⚠️ 不包含 MySQL，直接连宿主机 MySQL（130.133.5.8:65533）
+  # ⚠️ 后端映射 8081 端口（宿主机 8080 已被 Jenkins 占用）
   backend:
     build:
       context: ./ld-backend
@@ -74,8 +75,8 @@ services:
     container_name: ld-backend
     restart: unless-stopped
     environment:
-      # 连宿主机 MySQL，不走容器内 mysql:3306
-      SPRING_DATASOURCE_URL: "jdbc:mysql://host.docker.internal:65533/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
+      # 连宿主机 MySQL（内网 IP）
+      SPRING_DATASOURCE_URL: "jdbc:mysql://130.133.5.8:65533/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true"
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: 761761
       SPRING_REDIS_HOST: redis
@@ -84,7 +85,7 @@ services:
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       MINIO_ENDPOINT: http://minio:9000
     ports:
-      - "8081:8080"   # 宿主机 8081 → 容器 8080（避开 Jenkins 的 8080）
+      - "8081:8080"   # 宿主机 8081 → 容器 8080
     depends_on:
       - redis
       - rabbitmq
@@ -92,8 +93,6 @@ services:
       - minio
     networks:
       - ld-network
-    extra_hosts:
-      - "host.docker.internal:host-gateway"  # Linux 版 Docker 需此配置才能访问宿主机
 
   # ===== LightningDeal 前端（Nginx 静态托管 + 反代后端）=====
   frontend:

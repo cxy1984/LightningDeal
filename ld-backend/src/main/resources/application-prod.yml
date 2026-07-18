@@ -1,0 +1,37 @@
+# ===== 服务器正式部署环境 =====
+# 启动方式：默认激活（spring.profiles.active=prod）
+# 或通过 Docker 环境变量 SPRING_PROFILES_ACTIVE=prod
+
+spring:
+  # ===== MySQL（连宿主机，端口 65533）=====
+  datasource:
+    url: jdbc:mysql://localhost:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: 761761
+
+  # ===== Redis =====
+  redis:
+    host: localhost
+    port: 6379
+
+  # ===== RabbitMQ =====
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  # ===== Elasticsearch =====
+  elasticsearch:
+    uris: http://localhost:9200
+
+  # ===== MinIO =====
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+
+# 开启搜索功能
+lightning-deal:
+  search:
+    enabled: true

@@ -1,0 +1,56 @@
+# ===== 本地 Windows 开发环境 =====
+# 启动：./mvnw spring-boot:run -Dspring.profiles.active=local
+# 依赖：MySQL + Redis（本地 Docker 或直接安装）
+# 可选：RabbitMQ / ES / MinIO（按需启动 Docker 容器）
+
+spring:
+  # ===== MySQL（本地 localhost:3306）=====
+  datasource:
+    url: jdbc:mysql://localhost:3306/lightning_deal?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: root
+    password: 761761
+    hikari:
+      maximum-pool-size: 20
+
+  # ===== Redis =====
+  redis:
+    host: localhost
+    port: 6379
+    database: 1
+
+  # ===== RabbitMQ（本地没有就关闭消费者）=====
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        auto-startup: false
+
+  # ===== Elasticsearch =====
+  elasticsearch:
+    uris: http://localhost:9200
+
+  # ===== MinIO =====
+  minio:
+    endpoint: http://localhost:9000
+    access-key: minioadmin
+    secret-key: minioadmin
+
+# 关闭不需要的自动配置（没装 MQ/ES 也能跑）
+spring.autoconfigure:
+  exclude:
+    - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+    - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration
+    - org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchRepositoriesAutoConfiguration
+
+# 关闭搜索功能
+lightning-deal:
+  search:
+    enabled: false
+
+logging:
+  level:
+    org.springframework.amqp: off
+    org.springframework.data.elasticsearch: off
