@@ -27,10 +27,16 @@ public class SeckillController {
     @Operation(summary = "执行秒杀")
     @PostMapping("/execute")
     @RateLimit(
-            qps = 5,
-            capacity = 10,
+            qps = 200,
+            capacity = 300,
             key = "'seckill:' + #request.activityId",
             message = "秒杀太火爆啦，请稍后再试"
+    )
+    @RateLimit(
+            qps = 1,
+            capacity = 2,
+            key = "'seckill:' + #request.activityId + ':' + #authentication.principal",
+            message = "操作太频繁，请稍后再试"
     )
     public R<SeckillResult> execute(@Valid @RequestBody SeckillRequest request,
                                     Authentication authentication) {

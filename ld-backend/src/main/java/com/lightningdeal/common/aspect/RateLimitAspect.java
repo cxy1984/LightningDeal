@@ -1,6 +1,7 @@
 package com.lightningdeal.common.aspect;
 
 import com.lightningdeal.common.annotation.RateLimit;
+import com.lightningdeal.common.annotation.RateLimits;
 import com.lightningdeal.common.exception.RateLimitException;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
@@ -109,11 +110,28 @@ public class RateLimitAspect {
 
     @Before("@annotation(rateLimit)")
     public void doRateLimit(JoinPoint joinPoint, RateLimit rateLimit) {
+        checkRateLimit(joinPoint, rateLimit);
+    }
+
+    /**
+     * 处理多层限流（方法上有多个 @RateLimit 时，Spring AOP 通过 @RateLimits 容器注解匹配）
+     */
+    @Before("@annotation(rateLimits)")
+    public void doRateLimits(JoinPoint joinPoint, RateLimits rateLimits) {
+        for (RateLimit rl : rateLimits.value()) {
+            checkRateLimit(joinPoint, rl);
+        }
+    }
+
+    /**
+     * 检查单层限流
+     */
+    private void checkRateLimit(JoinPoint joinPoint, RateLimit rateLimit) {
         // 1. 解析 SpEL key
         String key = parseKey(rateLimit.key(), joinPoint);
         String redisKey = REDIS_KEY_PREFIX + key;
 
-        // 2. 执行令牌桶 Luas
+        // 2. 执行令牌桶 Lua
         Long now = System.currentTimeMillis();
         Long allowed = stringRedisTemplate.execute(
                 tokenBucketScript,

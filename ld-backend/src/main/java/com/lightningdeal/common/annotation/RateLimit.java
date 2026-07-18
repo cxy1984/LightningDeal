@@ -3,24 +3,25 @@ package com.lightningdeal.common.annotation;
 import java.lang.annotation.*;
 
 /**
- * 限流注解
+ * 限流注解（可重复，支持多层限流）
  * <p>
  * 基于 Redis 令牌桶算法实现，支持 SpEL 动态 key。
- * 使用方式：在 Controller 或 Service 方法上标注，配合切面拦截。
+ * 可在同一个方法上标注多个 {@code @RateLimit} 实现双层/多层限流。
  * <p>
  * 示例：
  * <pre>{@code
- * // 按活动+用户维度限流，每个用户每秒最多 5 次
- * @RateLimit(qps = 5, capacity = 10, key = "'seckill:' + #request.activityId + ':' + #authentication.principal")
+ * // 双层限流：全局限流 + 用户级限流
+ * @RateLimit(qps = 200, capacity = 300, key = "'seckill:' + #request.activityId",
+ *            message = "秒杀太火爆啦")
+ * @RateLimit(qps = 1, capacity = 2, key = "'seckill:' + #request.activityId + ':' + #authentication.principal",
+ *            message = "操作太频繁，请稍后再试")
  * public Result execute(SeckillRequest request, Authentication auth) { ... }
- *
- * // 全局限流，整个接口每秒最多 1000 次
- * @RateLimit(qps = 1000, capacity = 2000, key = "'seckill:global'")
  * }</pre>
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@Repeatable(RateLimits.class)
 public @interface RateLimit {
 
     /** 每秒填充令牌数（即 QPS 上限） */

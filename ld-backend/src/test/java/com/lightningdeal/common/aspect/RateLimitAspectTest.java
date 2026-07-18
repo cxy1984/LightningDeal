@@ -169,14 +169,13 @@ class RateLimitAspectTest {
 
     private JoinPoint mockJoinPoint(String expectedKey) throws NoSuchMethodException {
         // 使用一个简单的方法，参数仅用于 SpEL 测试
+        // 注意：此处 method 不带 @RateLimit 注解，测试的是切面被触发后
+        // 通过参数传入的 rateLimit 对象来执行限流逻辑
         Method method = SampleService.class.getMethod("sampleMethod", String.class);
         MethodSignature signature = mock(MethodSignature.class);
         when(signature.getMethod()).thenReturn(method);
         when(signature.getDeclaringType()).thenReturn(SampleService.class);
 
-        // 模拟 SpEL 解析：key 表达式被解析为 expectedKey
-        // 注意：静态 SpEL 解析器依赖于 -parameters 编译选项和 Discoverer
-        // 由于我们的测试方法参数名在编译后未保留，使用简单的不含参数引用的表达式
         JoinPoint joinPoint = mock(JoinPoint.class);
         when(joinPoint.getSignature()).thenReturn(signature);
         when(joinPoint.getArgs()).thenReturn(new Object[]{expectedKey});

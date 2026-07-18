@@ -75,5 +75,12 @@ public class DashboardData implements Serializable {
         private String goodsName;
         private long salesCount;
         private int rank;
+
+        public String getGoodsName() { return goodsName; }
+        public void setGoodsName(String goodsName) { this.goodsName = goodsName; }
+        public long getSalesCount() { return salesCount; }
+        public void setSalesCount(long salesCount) { this.salesCount = salesCount; }
+        public int getRank() { return rank; }
+        public void setRank(int rank) { this.rank = rank; }
     }
 }

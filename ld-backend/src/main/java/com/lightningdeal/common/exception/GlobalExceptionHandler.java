@@ -19,9 +19,10 @@ import static org.springframework.http.HttpStatus.TOO_MANY_REQUESTS;
 /**
  * 全局异常处理器
  */
-@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BizException.class)
     public R<Void> handleBizException(BizException e) {
