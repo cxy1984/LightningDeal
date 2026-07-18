@@ -438,7 +438,6 @@ LightningDeal/
 ### 待做（TODO）
 - [ ] JMeter 压测 + 参数调优
 - [ ] 日志链路追踪（Sleuth + Zipkin）
-- [ ] CI/CD 配置（GitHub Actions）
 - [ ] 监控告警
 - [ ] 部署文档 + 博客总结
 
