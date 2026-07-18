@@ -14,4 +14,5 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+# 通过 -g 参数覆盖 pid 路径到 /tmp（非 root 用户可写），解决新版 nginx:alpine 权限问题
+CMD ["nginx", "-g", "pid /tmp/nginx.pid; daemon off;"]
