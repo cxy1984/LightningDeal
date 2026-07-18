@@ -13,6 +13,7 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
+# 注释掉默认 pid 配置（新版 nginx:alpine 非 root 用户无 /run 写权限）
+RUN sed -i 's|pid /run/nginx.pid|#pid /run/nginx.pid|' /etc/nginx/nginx.conf
 EXPOSE 80
-# 通过 -g 参数覆盖 pid 路径到 /tmp（非 root 用户可写），解决新版 nginx:alpine 权限问题
 CMD ["nginx", "-g", "pid /tmp/nginx.pid; daemon off;"]
