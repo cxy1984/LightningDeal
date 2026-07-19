@@ -110,6 +110,8 @@ services:
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
+      # 临时禁用 RabbitMQ 监听器，解决 x-delayed-message 插件未安装的问题
+      SPRING_RABBITMQ_LISTENER_SIMPLE_AUTO_STARTUP: "false"
     ports:
       - "8081:8080"   # 宿主机 8081 → 容器 8080（避开 Jenkins 的 8080）
     depends_on:
