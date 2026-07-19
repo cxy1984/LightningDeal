@@ -18,7 +18,7 @@ services:
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     ports:
-      - "127.0.0.1:3307:3306"   # 宿主机 3307 → 容器 3306，避免与宿主机 MySQL 冲突
+      - "3307:3306"   # 对外暴露，方便本地 Navicat 连接
     volumes:
       - mysql-data:/var/lib/mysql
       - ./ld-backend/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -36,7 +36,7 @@ services:
     container_name: ld-redis
     restart: unless-stopped
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
@@ -51,7 +51,7 @@ services:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
     ports:
-      - "127.0.0.1:15672:15672"
+      - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     networks:
@@ -67,7 +67,7 @@ services:
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
       - xpack.security.enabled=false
     ports:
-      - "127.0.0.1:9200:9200"
+      - "9200:9200"
     volumes:
       - es-data:/usr/share/elasticsearch/data
     networks:
@@ -83,7 +83,7 @@ services:
       MINIO_ROOT_PASSWORD: minioadmin
     command: server /data --console-address ":9001"
     ports:
-      - "127.0.0.1:9001:9001"
+      - "9001:9001"
     volumes:
       - minio-data:/data
     networks:
