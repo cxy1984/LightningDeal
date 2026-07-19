@@ -14,6 +14,7 @@ CREATE TABLE `user` (
     `phone`       VARCHAR(16)  DEFAULT NULL            COMMENT '手机号',
     `email`       VARCHAR(64)  DEFAULT NULL            COMMENT '邮箱',
     `nickname`    VARCHAR(32)  DEFAULT NULL            COMMENT '昵称',
+    `role`        VARCHAR(16)  NOT NULL DEFAULT 'user' COMMENT '角色: admin/user',
     `avatar`      VARCHAR(256) DEFAULT NULL            COMMENT '头像URL',
     `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
